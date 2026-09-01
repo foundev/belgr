@@ -1,4 +1,4 @@
-MJOLNIR SUPPLEMENTAL THIRD-PARTY NOTICES
+BELGR SUPPLEMENTAL THIRD-PARTY NOTICES
 
 This file supplements THIRD_PARTY_LICENSES.html. Cargo package metadata
 does not enumerate standalone NOTICE files, embedded web fonts, or every
@@ -6,7 +6,7 @@ license in native source and prebuilt static-library payloads.
 
 The sections below are generated from Cargo.lock, exact installed crate
 sources, and a reviewed inventory of the non-Cargo assets shipped by
-official Mjolnir archives.
+official Belgr archives.
 
 ================================================================================
 cfg_aliases third-party attribution

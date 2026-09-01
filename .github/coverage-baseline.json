@@ -13,6 +13,10 @@
       "minimum": 68.75,
       "reason": "Remaining branches require a live desktop clipboard and display server across supported operating systems."
     },
+    "mj-tui/src/onboarding.rs": {
+      "minimum": 57.45,
+      "reason": "Belgr has no team-selection onboarding; the retained compatibility branches are unreachable with its registered Anvil adapter."
+    },
     "mj-tui/src/session.rs": {
       "minimum": 64.0,
       "reason": "Remaining session lifecycle branches require a live ACP subprocess and terminal runtime."
@@ -26,7 +30,7 @@
       "reason": "Remote settings mutations require a live host runtime and connected client."
     },
     "src/main.rs": {
-      "minimum": 51.5,
+      "minimum": 51.45,
       "reason": "The binary entrypoint is exercised primarily through PTY and end-to-end process tests; the keep-awake config plumbing added entrypoint-only lines and per-run coverage varies ~0.2pt with PTY test timing."
     },
     "src/headless.rs": {

@@ -2298,17 +2298,6 @@ fn handle_crossterm(
         return TerminalRequest::None;
     }
 
-    // Shift+Tab is the primary team-switch binding: unlike Ctrl+Tab it has a
-    // universal escape sequence (CSI Z), so terminals such as Terminal.app
-    // that cannot encode Ctrl+Tab still reach the picker. Ctrl+Tab stays as
-    // an alias for terminals that do deliver it.
-    if matches!(key.code, KeyCode::BackTab)
-        || (key.modifiers == KeyModifiers::CONTROL && matches!(key.code, KeyCode::Tab))
-    {
-        state.open_team_picker();
-        return TerminalRequest::None;
-    }
-
     if !is_plain_character_input(key.modifiers, key.code) {
         flush_input_paste_burst_if_due(state, Instant::now(), true);
     }
@@ -8259,7 +8248,7 @@ fn draw_welcome_pane(f: &mut ratatui::Frame, area: Rect, state: &AppState) {
     }
     lines.push(Line::default());
     lines.push(Line::from(Span::styled(
-        format!("Enter send · {PROMPT_NEWLINE_HINT} newline · Shift-Tab team · F10 help"),
+        format!("Enter send · {PROMPT_NEWLINE_HINT} newline · F10 help"),
         muted,
     )));
 
@@ -11808,11 +11797,11 @@ fn idle_prompt_title(
 ) -> Line<'static> {
     let hint = if voice_input_supported {
         format!(
-            " (Enter send | {PROMPT_NEWLINE_HINT} newline | Shift-Tab team | 🎙 Ctrl-R voice | F10 help | Ctrl-C quit{text_selection_hint}) "
+            " (Enter send | {PROMPT_NEWLINE_HINT} newline | 🎙 Ctrl-R voice | F10 help | Ctrl-C quit{text_selection_hint}) "
         )
     } else {
         format!(
-            " (Enter send | {PROMPT_NEWLINE_HINT} newline | Shift-Tab team | F10 help | Ctrl-C quit{text_selection_hint}) "
+            " (Enter send | {PROMPT_NEWLINE_HINT} newline | F10 help | Ctrl-C quit{text_selection_hint}) "
         )
     };
     prompt_title_line(state, hint)
@@ -14524,7 +14513,7 @@ mod tests {
         let rendered = buffer_lines(terminal.backend().buffer()).join("\n");
         assert!(rendered.contains("M J O L N I R"), "{rendered}");
         assert!(rendered.contains("claude · effort default"), "{rendered}");
-        assert!(rendered.contains("Shift-Tab team"), "{rendered}");
+        assert!(!rendered.contains("team"), "{rendered}");
     }
 
     #[test]
@@ -16878,6 +16867,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn ctrl_tab_saves_a_team_configuration_then_transfers_the_active_session() {
         let dir = tempfile::tempdir().expect("tempdir");
         let config_path = dir.path().join("config.toml");
@@ -16932,6 +16922,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn team_picker_refuses_primary_transfer_after_a_turn_starts() {
         let dir = tempfile::tempdir().expect("tempdir");
         let config_path = dir.path().join("config.toml");
@@ -17273,6 +17264,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn team_change_updates_reviewer_without_restarting_the_same_primary() {
         let dir = tempfile::tempdir().expect("tempdir");
         let config_path = dir.path().join("config.toml");
@@ -17313,6 +17305,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn team_change_from_a_pinned_primary_reloads_when_auto_keeps_that_model() {
         let dir = tempfile::tempdir().expect("tempdir");
         let config_path = dir.path().join("config.toml");
@@ -17345,6 +17338,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn team_change_that_resets_a_pinned_primary_model_keeps_the_new_session_step() {
         let dir = tempfile::tempdir().expect("tempdir");
         let config_path = dir.path().join("config.toml");
@@ -17387,6 +17381,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn shift_tab_opens_the_team_picker_and_cycles_teams() {
         let dir = tempfile::tempdir().expect("tempdir");
         let config_path = dir.path().join("config.toml");
@@ -19100,15 +19095,12 @@ mod tests {
         );
         assert!(rendered.contains("Reviewer"), "rendered:\n{rendered}");
         assert!(rendered.contains("Subagents"), "rendered:\n{rendered}");
-        assert!(rendered.contains("Team"), "rendered:\n{rendered}");
+        assert!(rendered.contains("Reviewer"), "rendered:\n{rendered}");
+        assert!(!rendered.contains("Team"), "rendered:\n{rendered}");
         assert!(!rendered.contains("ACP Priority"), "rendered:\n{rendered}");
         assert!(rendered.contains("ACP Servers"), "rendered:\n{rendered}");
         assert!(rendered.contains("Input"), "rendered:\n{rendered}");
         assert!(rendered.contains("Appearance"), "rendered:\n{rendered}");
-        assert!(
-            rendered.contains("Codex coder + Claude reviewer"),
-            "rendered:\n{rendered}"
-        );
         assert!(!rendered.contains("Saved primary defaults"));
     }
 
@@ -21654,7 +21646,7 @@ mod tests {
             "rendered:\n{rendered}"
         );
         assert!(rendered.contains("Ctrl-C quit"), "rendered:\n{rendered}");
-        assert!(rendered.contains("Shift-Tab team"), "rendered:\n{rendered}");
+        assert!(!rendered.contains("team"), "rendered:\n{rendered}");
         assert!(
             rendered.contains("F12 select text"),
             "rendered:\n{rendered}"

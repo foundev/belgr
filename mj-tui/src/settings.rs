@@ -89,7 +89,7 @@ impl SettingsEditor {
         let saved_max_correction_rounds = config.agent.max_correction_rounds;
         Self {
             config,
-            tab: SettingsTab::Team,
+            tab: SettingsTab::Reviewer,
             selected: 0,
             notice,
             choices,
@@ -255,10 +255,6 @@ impl SettingsEditor {
             return SettingsAction::Changed;
         }
         match self.tab {
-            SettingsTab::Team => {
-                self.cycle_team(delta);
-                return SettingsAction::Changed;
-            }
             SettingsTab::AcpServers => {
                 let Some(index) = self.selected.checked_sub(SERVER_ROW_OFFSET) else {
                     return SettingsAction::None;
@@ -349,10 +345,6 @@ impl SettingsEditor {
             return SettingsAction::Changed;
         }
         match self.tab {
-            SettingsTab::Team => {
-                self.cycle_team(1);
-                return SettingsAction::Changed;
-            }
             SettingsTab::AcpServers => {
                 let Some(index) = self.selected.checked_sub(SERVER_ROW_OFFSET) else {
                     return SettingsAction::None;
@@ -669,25 +661,6 @@ impl SettingsEditor {
             .unwrap_or(0);
         let next = (current as i32 + delta).rem_euclid(choices.len() as i32) as usize;
         self.config.agent.max_correction_rounds = choices[next];
-    }
-
-    fn cycle_team(&mut self, delta: i32) {
-        if self.config.apply_registered_external_team() {
-            return;
-        }
-        let current = TeamPreset::from_config(&self.config)
-            .and_then(|active| TeamPreset::ALL.iter().position(|preset| *preset == active))
-            .unwrap_or_else(|| {
-                if delta < 0 {
-                    0
-                } else {
-                    TeamPreset::ALL.len() - 1
-                }
-            });
-        let next = (current as i32 + delta).rem_euclid(TeamPreset::ALL.len() as i32) as usize;
-        TeamPreset::ALL[next].apply(&mut self.config);
-        self.refresh_inventory();
-        self.notice = Some("Team updated; save to apply it.".to_string());
     }
 
     pub(crate) fn model_choices(&self, role: usize) -> Vec<String> {
@@ -2822,42 +2795,6 @@ mod tests {
         editor.selected = 0;
         assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
         assert_eq!(editor.config.subagents.model, crate::config::DISABLED_MODEL);
-    }
-
-    #[test]
-    fn team_configuration_updates_all_three_routes() {
-        let mut editor = SettingsEditor::new(Config::default(), Vec::new(), None);
-        editor.tab = SettingsTab::Team;
-
-        assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
-        assert_eq!(
-            TeamPreset::from_config(&editor.config),
-            Some(TeamPreset::Codex)
-        );
-        assert_eq!(editor.config.agent.acp_source.as_deref(), Some("codex-acp"));
-        assert_eq!(
-            editor.config.subagents.acp_source.as_deref(),
-            Some("codex-acp")
-        );
-        assert_eq!(
-            editor.config.review.acp_source.as_deref(),
-            Some("codex-acp")
-        );
-        assert_eq!(
-            editor.notice.as_deref(),
-            Some("Team updated; save to apply it.")
-        );
-    }
-
-    #[test]
-    fn team_configuration_cycles_through_all_four_options() {
-        let mut editor = SettingsEditor::new(Config::default(), Vec::new(), None);
-        editor.tab = SettingsTab::Team;
-
-        for expected in TeamPreset::ALL {
-            assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
-            assert_eq!(TeamPreset::from_config(&editor.config), Some(expected));
-        }
     }
 
     #[test]

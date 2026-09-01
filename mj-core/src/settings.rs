@@ -28,6 +28,8 @@ pub fn is_configurable_acp_server(id: &str) -> bool {
 /// shortcut row instead of saved `/mjconfig` defaults.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsTab {
+    /// Legacy Mjolnir panel retained for config/onboarding compatibility. It
+    /// is deliberately absent from [`SettingsTab::ALL`] in Anvil-only Belgr.
     Team,
     Reviewer,
     Subagents,
@@ -37,8 +39,7 @@ pub enum SettingsTab {
 }
 
 impl SettingsTab {
-    pub const ALL: [Self; 6] = [
-        Self::Team,
+    pub const ALL: [Self; 5] = [
         Self::Reviewer,
         Self::Subagents,
         Self::AcpServers,
@@ -345,7 +346,7 @@ mod tests {
 
     #[test]
     fn catalog_includes_the_input_panel() {
-        assert_eq!(SettingsTab::ALL[4], SettingsTab::Input);
+        assert_eq!(SettingsTab::ALL[3], SettingsTab::Input);
         assert_eq!(SettingsTab::Input.id(), "input");
         assert_eq!(SettingsTab::Input.label(), "Input");
     }

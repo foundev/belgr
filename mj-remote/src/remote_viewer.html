@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Mjolnir Web</title>
+    <title>Belgr Web</title>
     <script>
       (() => {
         try {
-          const stored = localStorage.getItem("mjolnir-remote-theme");
+          const stored = localStorage.getItem("belgr-remote-theme");
           const light =
             stored === "light"
             || (stored !== "dark" && matchMedia("(prefers-color-scheme: light)").matches);
@@ -25,7 +25,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Mjolnir">
+    <meta name="apple-mobile-web-app-title" content="Belgr">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -3361,7 +3361,7 @@
     <section id="auth-screen" class="auth-screen">
       <div class="auth-card">
         <div class="auth-kicker">Remote console</div>
-        <h1>Mjolnir</h1>
+        <h1>Belgr</h1>
         <p>Enter the six-digit viewer code printed by <code>mj server</code>.</p>
         <form id="auth-form">
           <label for="auth-token">Viewer code</label>
@@ -3376,7 +3376,7 @@
       <aside class="sidebar">
         <div class="panel-header">
           <div class="sidebar-title-row">
-            <h1>Mjolnir</h1>
+            <h1>Belgr</h1>
             <div class="sidebar-actions">
               <button id="new-session-button" class="primary sidebar-new-button" type="button">New</button>
               <button id="logout-button" class="ghost-danger" type="button">Log out</button>
@@ -3742,8 +3742,8 @@
 
       const POLL_MS = 2000;
       const WORKING_WINDOW_MS = 6000;
-      const THEME_STORAGE_KEY = "mjolnir-remote-theme";
-      const SHOW_DIFFS_STORAGE_KEY = "mjolnir-remote-show-diffs";
+      const THEME_STORAGE_KEY = "belgr-remote-theme";
+      const SHOW_DIFFS_STORAGE_KEY = "belgr-remote-show-diffs";
       const THEME_COLORS = {
         dark: "#050606",
         light: "#f7f2e8",
@@ -8622,7 +8622,7 @@
           name.textContent = commandDisplay(command);
           const desc = document.createElement("span");
           desc.className = "command-option-desc";
-          desc.textContent = command.description || (command.source === "agent" ? "agent command" : "mjolnir command");
+          desc.textContent = command.description || (command.source === "agent" ? "agent command" : "belgr command");
           button.append(name, desc);
           button.addEventListener("mouseenter", () => setCommandSelected(index));
           button.addEventListener("mousedown", (event) => {
@@ -8702,7 +8702,7 @@
 
       function downloadTranscriptMarkdown(session) {
         const transcript = Array.isArray(session?.transcript) ? session.transcript : [];
-        const title = sessionLabel(session || {}) || "mjolnir session";
+        const title = sessionLabel(session || {}) || "belgr session";
         const body = [
           `# ${title}`,
           "",
@@ -8714,7 +8714,7 @@
         const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        const safeName = (title || "mjolnir-session").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-|-$/g, "") || "mjolnir-session";
+        const safeName = (title || "belgr-session").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-|-$/g, "") || "belgr-session";
         link.href = url;
         link.download = `${safeName}.md`;
         document.body.appendChild(link);
@@ -9786,7 +9786,7 @@
           // Keep retrying an existing cookie, but never hide the viewer-code
           // form: this can also be a first connection to a setup-pending
           // server, and hiding the only way forward dead-ends onboarding.
-          showAuth(`Can't reach Mjolnir. Reconnecting automatically…`);
+          showAuth(`Can't reach Belgr. Reconnecting automatically…`);
           scheduleSessionResumeRetry();
         }
       }

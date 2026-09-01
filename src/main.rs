@@ -1,4 +1,4 @@
-//! mjolnir: an interactive terminal client for any ACP-speaking agent.
+//! belgr: an interactive terminal client for any ACP-speaking agent.
 //!
 //! Resolves a model-first agent roster from DeepSWE and locally
 //! launchable ACP adapters, then renders the active foreground ACP session in
@@ -62,7 +62,7 @@ use crate::ui::HeaderLabels;
 use crate::worktree::CreatedWorktree;
 
 #[derive(Debug, Parser)]
-#[command(name = "mj", version, about = "Interactive ACP chat TUI")]
+#[command(name = "belgr", version, about = "Interactive ACP chat TUI for Anvil")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -149,9 +149,9 @@ struct Cli {
     /// Run the ACP session in a Git worktree.
     ///
     /// With no value, creates a new linked worktree under
-    /// <project>/.mjolnir/worktrees/ with a random adjective-noun name
+    /// <project>/.belgr/worktrees/ with a random adjective-noun name
     /// (e.g. `bold-robin`). With a value, reuses an existing worktree
-    /// by name (short name under .mjolnir/worktrees/) or by path.
+    /// by name (short name under .belgr/worktrees/) or by path.
     #[arg(short = 'w', long, num_args = 0..=1, default_missing_value = "")]
     worktree: Option<String>,
 
@@ -165,14 +165,14 @@ struct Cli {
     #[arg(
         long,
         global = true,
-        env = "MJOLNIR_FS_MAX_TEXT_BYTES",
+        env = "BELGR_FS_MAX_TEXT_BYTES",
         default_value_t = acp::DEFAULT_FS_TEXT_BYTES,
         value_parser = parse_fs_max_text_bytes
     )]
     fs_max_text_bytes: u64,
 
     /// Skip the startup check for a newer mj release.
-    #[arg(long, global = true, env = "MJOLNIR_NO_UPDATE_CHECK")]
+    #[arg(long, global = true, env = "BELGR_NO_UPDATE_CHECK")]
     no_update_check: bool,
 }
 
@@ -446,7 +446,7 @@ struct ResumeArgs {
     /// Run the resumed ACP session in a Git worktree.
     ///
     /// With no value, creates a new linked worktree under
-    /// <project>/.mjolnir/worktrees/. With a value, reuses an existing
+    /// <project>/.belgr/worktrees/. With a value, reuses an existing
     /// worktree by name or by path.
     #[arg(short = 'w', long, num_args = 0..=1, default_missing_value = "")]
     worktree: Option<String>,
@@ -583,8 +583,8 @@ async fn main() -> Result<()> {
     if let Some(Commands::McpBridge(args)) = &cli.command {
         return mj_core::mcp_bridge::run_bridge(&args.addr).await;
     }
-    // Register the platform adapter before config load or roster resolution.
-    #[cfg(target_os = "android")]
+    // Register Anvil — Belgr's only ACP route — before config load or roster
+    // resolution.
     mj_anvil::register();
     let debug_file = cli.log_file.clone();
     let snapshot_exclusions =
@@ -1014,7 +1014,7 @@ async fn run_desktop_app(
         }
     });
 
-    println!("Opening the Mjolnir desktop viewer at {}", handle.origin);
+    println!("Opening the Belgr desktop viewer at {}", handle.origin);
     let shell_result = desktop::run(
         desktop::DesktopShellOptions {
             origin: handle.origin,
@@ -4184,10 +4184,10 @@ mod tests {
     #[test]
     fn project_label_uses_full_worktree_session_path_with_tilde() {
         let worktree = CreatedWorktree {
-            project_root: PathBuf::from("/Users/ryan/code/mjolnir"),
-            worktree_root: PathBuf::from("/Users/ryan/code/mjolnir/.mjolnir/worktrees/bold-willow"),
+            project_root: PathBuf::from("/Users/ryan/code/belgr"),
+            worktree_root: PathBuf::from("/Users/ryan/code/belgr/.belgr/worktrees/bold-willow"),
             session_cwd: PathBuf::from(
-                "/Users/ryan/code/mjolnir/.mjolnir/worktrees/bold-willow/src",
+                "/Users/ryan/code/belgr/.belgr/worktrees/bold-willow/src",
             ),
             was_created: false,
         };
@@ -4199,9 +4199,9 @@ mod tests {
     }
 
     #[test]
-    fn project_label_uses_full_directory_path_inside_mjolnir_worktree() {
+    fn project_label_uses_full_directory_path_inside_belgr_worktree() {
         let cwd =
-            std::path::Path::new("/Users/ryan/code/mjolnir/.mjolnir/worktrees/bold-willow/src");
+            std::path::Path::new("/Users/ryan/code/belgr/.belgr/worktrees/bold-willow/src");
         assert_eq!(
             project_label(cwd),
             mj_core::paths::display_path_with_tilde(cwd)
@@ -4210,7 +4210,7 @@ mod tests {
 
     #[test]
     fn project_label_uses_full_directory_path_without_worktree() {
-        let cwd = std::path::Path::new("/Users/ryan/code/mjolnir/src");
+        let cwd = std::path::Path::new("/Users/ryan/code/belgr/src");
         assert_eq!(
             project_label(cwd),
             mj_core::paths::display_path_with_tilde(cwd)
@@ -4555,9 +4555,9 @@ mod tests {
 
     /// Parse argv with every env-backed default detached. Tests must use this
     /// instead of `Cli::try_parse_from` so they stay hermetic when the test
-    /// process inherits variables like `MJOLNIR_NO_UPDATE_CHECK` or
+    /// process inherits variables like `BELGR_NO_UPDATE_CHECK` or
     /// `BROKK_TUI_AGENT_STDERR` from the developer's shell. (An exported
-    /// `MJOLNIR_NO_UPDATE_CHECK=1` even fails *unrelated* parses outright,
+    /// `BELGR_NO_UPDATE_CHECK=1` even fails *unrelated* parses outright,
     /// because "1" is not a valid clap boolean.)
     fn try_parse_hermetic(args: &[&str]) -> Result<Cli, clap::Error> {
         fn detach_env(cmd: clap::Command) -> clap::Command {
@@ -5179,8 +5179,8 @@ mod tests {
 
         let worktree = CreatedWorktree {
             project_root: PathBuf::from("/tmp/project"),
-            worktree_root: PathBuf::from("/tmp/project/.mjolnir/worktrees/test-tree"),
-            session_cwd: PathBuf::from("/tmp/project/.mjolnir/worktrees/test-tree/src"),
+            worktree_root: PathBuf::from("/tmp/project/.belgr/worktrees/test-tree"),
+            session_cwd: PathBuf::from("/tmp/project/.belgr/worktrees/test-tree/src"),
             was_created: false,
         };
         assert_eq!(

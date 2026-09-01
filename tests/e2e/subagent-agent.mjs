@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // One deterministic ACP fixture plays the primary agent or a subagent according
-// to the model Mjolnir selects before the first prompt. It also makes probe
+// to the model Belgr selects before the first prompt. It also makes probe
 // sessions cheap.
 import { spawn } from "node:child_process";
 import fs from "node:fs";

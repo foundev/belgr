@@ -39,15 +39,15 @@ jobs:
         run: cargo build --release --locked --target x86_64-unknown-linux-gnu
 
       - name: Build voice worker
-        run: cargo build --release --locked -p brokk-mj-voice-worker --target x86_64-unknown-linux-gnu
+        run: cargo build --release --locked -p belgr-mj-voice-worker --target x86_64-unknown-linux-gnu
 
       - name: Package archive
         shell: bash
         run: |
-          name="brokk-mjolnir-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu"
+          name="belgr-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu"
           mkdir "$name"
-          cp "target/x86_64-unknown-linux-gnu/release/mj" "$name/"
-          cp "target/x86_64-unknown-linux-gnu/release/mj-voice-worker" "$name/"
+          cp "target/x86_64-unknown-linux-gnu/release/belgr" "$name/"
+          cp "target/x86_64-unknown-linux-gnu/release/belgr-voice-worker" "$name/"
           cp README.md LICENSE "$name/"
           mkdir "$name/licenses"
           cp licenses/SOURCE.md licenses/OFL-1.1.md licenses/THIRD_PARTY_LICENSES.html licenses/SUPPLEMENTAL_THIRD_PARTY_NOTICES.txt "$name/licenses/"
@@ -60,8 +60,8 @@ jobs:
         with:
           name: x86_64-unknown-linux-gnu
           path: |
-            brokk-mjolnir-*.tar.gz
-            brokk-mjolnir-*.tar.gz.sha256
+            belgr-*.tar.gz
+            belgr-*.tar.gz.sha256
           if-no-files-found: error
 
   build-linux-arm64:
@@ -92,15 +92,15 @@ jobs:
         run: cargo build --release --locked --target aarch64-unknown-linux-gnu
 
       - name: Build voice worker
-        run: cargo build --release --locked -p brokk-mj-voice-worker --target aarch64-unknown-linux-gnu
+        run: cargo build --release --locked -p belgr-mj-voice-worker --target aarch64-unknown-linux-gnu
 
       - name: Package archive
         shell: bash
         run: |
-          name="brokk-mjolnir-${GITHUB_REF_NAME}-aarch64-unknown-linux-gnu"
+          name="belgr-${GITHUB_REF_NAME}-aarch64-unknown-linux-gnu"
           mkdir "$name"
-          cp "target/aarch64-unknown-linux-gnu/release/mj" "$name/"
-          cp "target/aarch64-unknown-linux-gnu/release/mj-voice-worker" "$name/"
+          cp "target/aarch64-unknown-linux-gnu/release/belgr" "$name/"
+          cp "target/aarch64-unknown-linux-gnu/release/belgr-voice-worker" "$name/"
           cp README.md LICENSE "$name/"
           mkdir "$name/licenses"
           cp licenses/SOURCE.md licenses/OFL-1.1.md licenses/THIRD_PARTY_LICENSES.html licenses/SUPPLEMENTAL_THIRD_PARTY_NOTICES.txt "$name/licenses/"
@@ -113,8 +113,8 @@ jobs:
         with:
           name: aarch64-unknown-linux-gnu
           path: |
-            brokk-mjolnir-*.tar.gz
-            brokk-mjolnir-*.tar.gz.sha256
+            belgr-*.tar.gz
+            belgr-*.tar.gz.sha256
           if-no-files-found: error
 
   build-android:
@@ -151,9 +151,9 @@ jobs:
       - name: Package archive
         shell: bash
         run: |
-          name="brokk-mjolnir-${GITHUB_REF_NAME}-aarch64-linux-android"
+          name="belgr-${GITHUB_REF_NAME}-aarch64-linux-android"
           mkdir "$name"
-          cp "target/aarch64-linux-android/release/mj" "$name/"
+          cp "target/aarch64-linux-android/release/belgr" "$name/"
           cp README.md LICENSE "$name/"
           mkdir "$name/licenses"
           cp licenses/SOURCE.md licenses/OFL-1.1.md licenses/THIRD_PARTY_LICENSES.html licenses/SUPPLEMENTAL_THIRD_PARTY_NOTICES.txt "$name/licenses/"
@@ -166,8 +166,8 @@ jobs:
         with:
           name: aarch64-linux-android
           path: |
-            brokk-mjolnir-*.tar.gz
-            brokk-mjolnir-*.tar.gz.sha256
+            belgr-*.tar.gz
+            belgr-*.tar.gz.sha256
           if-no-files-found: error
 
   build-windows:
@@ -186,15 +186,15 @@ jobs:
         run: cargo build --release --locked --target x86_64-pc-windows-msvc
 
       - name: Build voice worker
-        run: cargo build --release --locked -p brokk-mj-voice-worker --target x86_64-pc-windows-msvc
+        run: cargo build --release --locked -p belgr-mj-voice-worker --target x86_64-pc-windows-msvc
 
       - name: Package archive
         shell: pwsh
         run: |
-          $name = "brokk-mjolnir-${env:GITHUB_REF_NAME}-x86_64-pc-windows-msvc"
+          $name = "belgr-${env:GITHUB_REF_NAME}-x86_64-pc-windows-msvc"
           New-Item -ItemType Directory -Path $name | Out-Null
-          Copy-Item "target\x86_64-pc-windows-msvc\release\mj.exe" -Destination $name
-          Copy-Item "target\x86_64-pc-windows-msvc\release\mj-voice-worker.exe" -Destination $name
+          Copy-Item "target\x86_64-pc-windows-msvc\release\belgr.exe" -Destination $name
+          Copy-Item "target\x86_64-pc-windows-msvc\release\belgr-voice-worker.exe" -Destination $name
           Copy-Item "README.md" -Destination $name
           Copy-Item "LICENSE" -Destination $name
           New-Item -ItemType Directory -Path "$name\licenses" | Out-Null
@@ -210,8 +210,8 @@ jobs:
         with:
           name: x86_64-pc-windows-msvc
           path: |
-            brokk-mjolnir-*.zip
-            brokk-mjolnir-*.zip.sha256
+            belgr-*.zip
+            belgr-*.zip.sha256
           if-no-files-found: error
 
   build-macos:
@@ -230,34 +230,34 @@ jobs:
         run: cargo build --release --locked --target x86_64-apple-darwin
 
       - name: Build x86_64 voice worker
-        run: cargo build --release --locked -p brokk-mj-voice-worker --target x86_64-apple-darwin
+        run: cargo build --release --locked -p belgr-mj-voice-worker --target x86_64-apple-darwin
 
       - name: Build aarch64 binary
         run: cargo build --release --locked --target aarch64-apple-darwin
 
       - name: Build aarch64 voice worker
-        run: cargo build --release --locked -p brokk-mj-voice-worker --target aarch64-apple-darwin
+        run: cargo build --release --locked -p belgr-mj-voice-worker --target aarch64-apple-darwin
 
       - name: Create universal binary
         run: |
           mkdir -p target/universal-apple-darwin/release
           lipo -create \
-            target/x86_64-apple-darwin/release/mj \
-            target/aarch64-apple-darwin/release/mj \
-            -output target/universal-apple-darwin/release/mj
-          lipo -info target/universal-apple-darwin/release/mj
+            target/x86_64-apple-darwin/release/belgr \
+            target/aarch64-apple-darwin/release/belgr \
+            -output target/universal-apple-darwin/release/belgr
+          lipo -info target/universal-apple-darwin/release/belgr
           lipo -create \
-            target/x86_64-apple-darwin/release/mj-voice-worker \
-            target/aarch64-apple-darwin/release/mj-voice-worker \
-            -output target/universal-apple-darwin/release/mj-voice-worker
-          lipo -info target/universal-apple-darwin/release/mj-voice-worker
+            target/x86_64-apple-darwin/release/belgr-voice-worker \
+            target/aarch64-apple-darwin/release/belgr-voice-worker \
+            -output target/universal-apple-darwin/release/belgr-voice-worker
+          lipo -info target/universal-apple-darwin/release/belgr-voice-worker
 
       - name: Package archive
         run: |
-          name="brokk-mjolnir-${GITHUB_REF_NAME}-universal-apple-darwin"
+          name="belgr-${GITHUB_REF_NAME}-universal-apple-darwin"
           mkdir "$name"
-          cp target/universal-apple-darwin/release/mj "$name/"
-          cp target/universal-apple-darwin/release/mj-voice-worker "$name/"
+          cp target/universal-apple-darwin/release/belgr "$name/"
+          cp target/universal-apple-darwin/release/belgr-voice-worker "$name/"
           cp README.md LICENSE "$name/"
           mkdir "$name/licenses"
           cp licenses/SOURCE.md licenses/OFL-1.1.md licenses/THIRD_PARTY_LICENSES.html licenses/SUPPLEMENTAL_THIRD_PARTY_NOTICES.txt "$name/licenses/"
@@ -270,8 +270,8 @@ jobs:
         with:
           name: universal-apple-darwin
           path: |
-            brokk-mjolnir-*.tar.gz
-            brokk-mjolnir-*.tar.gz.sha256
+            belgr-*.tar.gz
+            belgr-*.tar.gz.sha256
           if-no-files-found: error
 
   release:
@@ -295,10 +295,10 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            artifacts/brokk-mjolnir-*.tar.gz
-            artifacts/brokk-mjolnir-*.tar.gz.sha256
-            artifacts/brokk-mjolnir-*.zip
-            artifacts/brokk-mjolnir-*.zip.sha256
+            artifacts/belgr-*.tar.gz
+            artifacts/belgr-*.tar.gz.sha256
+            artifacts/belgr-*.zip
+            artifacts/belgr-*.zip.sha256
 
       # Events created with GITHUB_TOKEN do not start workflows, while crates.io
       # rejects trusted-publishing requests from the workflow_run event. An

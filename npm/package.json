@@ -1,5 +1,5 @@
 {
-  "name": "mjolnir-npm-packaging",
+  "name": "belgr-npm-packaging",
   "private": true,
   "type": "module",
   "scripts": {

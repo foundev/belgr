@@ -1455,7 +1455,7 @@ fn draw_team(
     if let Some(external) = crate::roster::external_adapter() {
         let lines = vec![
             Line::styled(
-                "Mjolnir automatically reviews generated code before returning the result.",
+                "Belgr automatically reviews generated code before returning the result.",
                 Style::default().ink(theme.text),
             ),
             Line::styled(
@@ -1480,7 +1480,7 @@ fn draw_team(
     let active_label = active.map_or("Custom routing", TeamPreset::label);
     let mut lines = vec![
         Line::styled(
-            "Mjolnir automatically reviews generated code before returning the result.",
+            "Belgr automatically reviews generated code before returning the result.",
             Style::default().ink(theme.text),
         ),
         Line::styled(

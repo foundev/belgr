@@ -1,5 +1,5 @@
 [package]
-name = "brokk-mj-agents"
+name = "belgr-mj-agents"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

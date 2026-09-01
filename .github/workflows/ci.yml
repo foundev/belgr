@@ -49,18 +49,18 @@ jobs:
         for member in mj-core mj-agents mj-anvil mj-tui mj-remote mj-desktop voice-worker; do
           diff -u LICENSE "$member/LICENSE"
         done
-        cargo package --locked --allow-dirty --no-verify -p brokk-mj-desktop
+        cargo package --locked --allow-dirty --no-verify -p belgr-mj-desktop
         # The root package cannot resolve its same-release workspace registry
         # dependencies until publishing; the matrix build below validates it.
-        cargo package --locked --allow-dirty --list -p brokk-mjolnir > /tmp/mjolnir-package-files.txt
-        grep -Fx LICENSE /tmp/mjolnir-package-files.txt
-        grep -Fx licenses/THIRD_PARTY_LICENSES.html /tmp/mjolnir-package-files.txt
-        grep -Fx licenses/SUPPLEMENTAL_THIRD_PARTY_NOTICES.txt /tmp/mjolnir-package-files.txt
-        for member in brokk-mj-core brokk-mj-agents brokk-mj-anvil brokk-mj-tui brokk-mj-remote brokk-mj-desktop brokk-mj-voice-worker; do
+        cargo package --locked --allow-dirty --list -p belgr > /tmp/belgr-package-files.txt
+        grep -Fx LICENSE /tmp/belgr-package-files.txt
+        grep -Fx licenses/THIRD_PARTY_LICENSES.html /tmp/belgr-package-files.txt
+        grep -Fx licenses/SUPPLEMENTAL_THIRD_PARTY_NOTICES.txt /tmp/belgr-package-files.txt
+        for member in belgr-mj-core belgr-mj-agents belgr-mj-anvil belgr-mj-tui belgr-mj-remote belgr-mj-desktop belgr-mj-voice-worker; do
           cargo package --locked --allow-dirty --list -p "$member" | grep -Fx LICENSE
         done
 
-  mjolnir:
+  belgr:
     strategy:
       fail-fast: false
       matrix:
@@ -94,10 +94,10 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-mjolnir-cargo-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Cargo.lock') }}
+        key: ${{ runner.os }}-belgr-cargo-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-mjolnir-cargo-${{ steps.toolchain.outputs.cachekey }}-
-          ${{ runner.os }}-mjolnir-cargo-
+          ${{ runner.os }}-belgr-cargo-${{ steps.toolchain.outputs.cachekey }}-
+          ${{ runner.os }}-belgr-cargo-
 
     - name: Check Rust formatting
       run: cargo fmt --check
@@ -108,20 +108,20 @@ jobs:
     # `mj-desktop` is linked into the default desktop binary but remains outside
     # the default workspace members, so its own test targets need this gate.
     - name: Lint desktop crate
-      run: cargo clippy -p brokk-mj-desktop --all-targets -- -D warnings
+      run: cargo clippy -p belgr-mj-desktop --all-targets -- -D warnings
 
-    - name: Build mjolnir
+    - name: Build belgr
       run: cargo build --release
 
     - name: Run tests
       run: cargo test
 
     - name: Test desktop crate
-      run: cargo test -p brokk-mj-desktop
+      run: cargo test -p belgr-mj-desktop
 
     - name: Verify packaged macOS desktop crate
       if: runner.os == 'macOS'
-      run: cargo package --locked --allow-dirty -p brokk-mj-desktop
+      run: cargo package --locked --allow-dirty -p belgr-mj-desktop
 
   voice-worker:
     name: Voice worker (ubuntu-latest)
@@ -140,10 +140,10 @@ jobs:
         sudo apt-get install --no-install-recommends --assume-yes libasound2-dev
 
     - name: Check voice worker
-      run: cargo clippy -p brokk-mj-voice-worker --all-targets -- -D warnings
+      run: cargo clippy -p belgr-mj-voice-worker --all-targets -- -D warnings
 
     - name: Test voice worker
-      run: cargo test -p brokk-mj-voice-worker
+      run: cargo test -p belgr-mj-voice-worker
 
   android:
     name: Android aarch64-linux-android
@@ -161,10 +161,10 @@ jobs:
     # Android binary), so the host matrix job never builds it; its lint and
     # test gate lives here instead.
     - name: Lint Anvil crate
-      run: cargo clippy --locked -p brokk-mj-anvil --all-targets -- -D warnings
+      run: cargo clippy --locked -p belgr-mj-anvil --all-targets -- -D warnings
 
     - name: Test Anvil crate
-      run: cargo test --locked -p brokk-mj-anvil
+      run: cargo test --locked -p belgr-mj-anvil
 
     - name: Setup Android NDK
       id: setup-ndk

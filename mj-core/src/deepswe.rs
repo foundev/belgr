@@ -27,7 +27,7 @@ pub use crate::roster_types::ModelRow as Row;
 pub fn default_cache_path() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from(".cache"))
-        .join("mj")
+        .join("belgr")
         .join("deepswe-v1.1.json")
 }
 

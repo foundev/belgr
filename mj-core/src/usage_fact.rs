@@ -23,7 +23,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 pub fn default_store_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("mj")
+        .join("belgr")
         .join("usage.sqlite3")
 }
 

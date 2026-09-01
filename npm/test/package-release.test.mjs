@@ -12,11 +12,11 @@ test("declares every release target exactly once", () => {
   assert.deepEqual(
     PLATFORMS.map((platform) => platform.packageName),
     [
-      "@brokkai/mjolnir-darwin-universal",
-      "@brokkai/mjolnir-linux-x64-gnu",
-      "@brokkai/mjolnir-linux-arm64-gnu",
-      "@brokkai/mjolnir-android-arm64",
-      "@brokkai/mjolnir-win32-x64",
+      "belgr-darwin-universal",
+      "belgr-linux-x64-gnu",
+      "belgr-linux-arm64-gnu",
+      "belgr-android-arm64",
+      "belgr-win32-x64",
     ],
   );
   assert.equal(new Set(PLATFORMS.map((platform) => platform.target)).size, PLATFORMS.length);
@@ -40,7 +40,7 @@ test("generates exact platform dependency versions", () => {
 test("generates platform constraints without committed manifests", () => {
   const linux = PLATFORMS.find((platform) => platform.target === "x86_64-unknown-linux-gnu");
   const manifest = platformManifest(linux, "1.5.2");
-  assert.equal(manifest.name, "@brokkai/mjolnir-linux-x64-gnu");
+  assert.equal(manifest.name, "belgr-linux-x64-gnu");
   assert.deepEqual(manifest.os, ["linux"]);
   assert.deepEqual(manifest.cpu, ["x64"]);
   assert.deepEqual(manifest.libc, ["glibc"]);

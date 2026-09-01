@@ -2,7 +2,7 @@
 set -eu
 
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-bin=${MJ_E2E_BIN:-"$repo/target/debug/mj"}
+bin=${MJ_E2E_BIN:-"$repo/target/debug/belgr"}
 node=$(command -v node)
 
 if [ ! -x "$bin" ]; then
@@ -36,11 +36,11 @@ run_case() {
   }
   trap cleanup_case EXIT INT TERM
   workspace="$root/workspace"
-  mkdir -p "$workspace" "$root/home/.config/mj" "$root/home/Library/Application Support/mj" \
-    "$root/home/.cache/mj" "$root/home/Library/Caches/mj" "$root/home/.codex"
+  mkdir -p "$workspace" "$root/home/.config/belgr" "$root/home/Library/Application Support/belgr" \
+    "$root/home/.cache/belgr" "$root/home/Library/Caches/mj" "$root/home/.codex"
   git -C "$workspace" init -q
-  git -C "$workspace" config user.email mjolnir@example.test
-  git -C "$workspace" config user.name "Mjolnir Tests"
+  git -C "$workspace" config user.email belgr@example.test
+  git -C "$workspace" config user.name "Belgr Tests"
   printf 'seed\n' >"$workspace/seed.txt"
   git -C "$workspace" add seed.txt
   git -C "$workspace" commit -qm seed
@@ -49,14 +49,14 @@ run_case() {
   # (an OPENAI_API_KEY or OAuth tokens); an empty object is "not authenticated"
   # and the adapter never enters the roster.
   printf '{"OPENAI_API_KEY":"e2e-test-key"}\n' >"$root/home/.codex/auth.json"
-  cp "$repo/src/deepswe_snapshot.json" "$root/home/.cache/mj/deepswe-v1.1.json"
+  cp "$repo/src/deepswe_snapshot.json" "$root/home/.cache/belgr/deepswe-v1.1.json"
   cp "$repo/src/deepswe_snapshot.json" "$root/home/Library/Caches/mj/deepswe-v1.1.json"
   # Both version markers are load-bearing: stale schema starts fresh, while
   # stale onboarding content opens the product-update card instead of a
   # session, so the pinned fixture routes would never run.
   config="version = 4\nonboarding_version = 2\n\n[agent]\nreasoning_effort = \"high\"\n\n[subagents]\nmodel = \"gpt-5-6-luna\"\nreasoning_effort = \"high\"\n"
-  printf '%b' "$config" >"$root/home/.config/mj/config.toml"
-  printf '%b' "$config" >"$root/home/Library/Application Support/mj/config.toml"
+  printf '%b' "$config" >"$root/home/.config/belgr/config.toml"
+  printf '%b' "$config" >"$root/home/Library/Application Support/belgr/config.toml"
 
   wait_reaped() {
     pid_file=$1

@@ -5,8 +5,8 @@ use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 const AGENTS_FILE: &str = "AGENTS.md";
-const START_MARKER: &str = "<!-- mjolnir:bifrost-agent-guidance:start -->";
-const END_MARKER: &str = "<!-- mjolnir:bifrost-agent-guidance:end -->";
+const START_MARKER: &str = "<!-- belgr:bifrost-agent-guidance:start -->";
+const END_MARKER: &str = "<!-- belgr:bifrost-agent-guidance:end -->";
 const GUIDANCE_HEADING: &str = "# Bifrost Code Intelligence";
 const GUIDANCE_SOURCE: &str = "https://brokkai.github.io/bifrost/agents/";
 

@@ -60,7 +60,7 @@ pub async fn run_login(vendor: AuthVendor) -> Result<LoginOutcome> {
         }
     };
     println!(
-        "Signing in to {}. Mjolnir will return when it finishes.",
+        "Signing in to {}. Belgr will return when it finishes.",
         vendor.label()
     );
     if let Some(hint) = login_terminal_hint(vendor) {

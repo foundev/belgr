@@ -1,4 +1,4 @@
-//! Single source of truth for Mjolnir-owned slash commands.
+//! Single source of truth for Belgr-owned slash commands.
 //!
 //! Membership lives in three lists: [`SHARED_COMMANDS`] is advertised by both
 //! the TUI and the web viewer, [`TUI_ONLY_COMMANDS`] only by the TUI, and
@@ -159,7 +159,7 @@ pub const TUI_ONLY_COMMANDS: &[SurfaceCommand] = &[
     },
     SurfaceCommand {
         name: EXIT_COMMAND,
-        description: "quit Mjolnir",
+        description: "quit Belgr",
         input_hint: None,
     },
 ];

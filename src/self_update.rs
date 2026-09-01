@@ -12,18 +12,18 @@ use semver::Version;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-const LATEST_RELEASE_URL: &str = "https://api.github.com/repos/BrokkAi/mjolnir/releases/latest";
-const NPM_LATEST_URL: &str = "https://registry.npmjs.org/@brokkai%2Fmjolnir/latest";
+const LATEST_RELEASE_URL: &str = "https://api.github.com/repos/foundev/belgr/releases/latest";
+const NPM_LATEST_URL: &str = "https://registry.npmjs.org/belgr/latest";
 const HOMEBREW_FORMULA_URL: &str =
-    "https://raw.githubusercontent.com/BrokkAi/homebrew-tap/main/Formula/mjolnir.rb";
-const CARGO_INDEX_URL: &str = "https://index.crates.io/br/ok/brokk-mjolnir";
-const BIN_NAME: &str = "mj";
-const WINDOWS_BIN_NAME: &str = "mj.exe";
-const VOICE_WORKER_NAME: &str = "mj-voice-worker";
-const WINDOWS_VOICE_WORKER_NAME: &str = "mj-voice-worker.exe";
-const NPM_MANAGED_ENV: &str = "MJOLNIR_MANAGED_BY_NPM";
-const NPX_MANAGED_ENV: &str = "MJOLNIR_MANAGED_BY_NPX";
-const HOMEBREW_MANAGED_ENV: &str = "MJOLNIR_MANAGED_BY_HOMEBREW";
+    "https://raw.githubusercontent.com/foundev/homebrew-tap/main/Formula/belgr.rb";
+const CARGO_INDEX_URL: &str = "https://index.crates.io/be/lg/belgr";
+const BIN_NAME: &str = "belgr";
+const WINDOWS_BIN_NAME: &str = "belgr.exe";
+const VOICE_WORKER_NAME: &str = "belgr-voice-worker";
+const WINDOWS_VOICE_WORKER_NAME: &str = "belgr-voice-worker.exe";
+const NPM_MANAGED_ENV: &str = "BELGR_MANAGED_BY_NPM";
+const NPX_MANAGED_ENV: &str = "BELGR_MANAGED_BY_NPX";
+const HOMEBREW_MANAGED_ENV: &str = "BELGR_MANAGED_BY_HOMEBREW";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StartupUpdateResult {
@@ -61,15 +61,15 @@ impl InstallMethod {
 
     fn update_command(&self) -> Option<String> {
         match self {
-            Self::Npm => Some("npm install -g @brokkai/mjolnir@latest".to_string()),
-            Self::Npx => Some("npx -y @brokkai/mjolnir@latest".to_string()),
-            Self::Homebrew => Some("brew upgrade mjolnir".to_string()),
+            Self::Npm => Some("npm install -g belgr@latest".to_string()),
+            Self::Npx => Some("npx -y belgr@latest".to_string()),
+            Self::Homebrew => Some("brew upgrade belgr".to_string()),
             Self::Cargo { voice_worker: true } => {
-                Some("cargo install --locked brokk-mjolnir brokk-mj-voice-worker".to_string())
+                Some("cargo install --locked belgr belgr-mj-voice-worker".to_string())
             }
             Self::Cargo {
                 voice_worker: false,
-            } => Some("cargo install --locked brokk-mjolnir".to_string()),
+            } => Some("cargo install --locked belgr".to_string()),
             Self::Direct => None,
         }
     }
@@ -703,7 +703,7 @@ fn install_method_from_exe(exe_path: &Path, current_version: &str) -> InstallMet
     InstallMethod::Cargo {
         voice_worker: cargo_install_recorded(
             &install_root,
-            "brokk-mj-voice-worker",
+            "belgr-mj-voice-worker",
             None,
             VOICE_WORKER_NAME,
         ),
@@ -717,7 +717,7 @@ fn is_homebrew_executable(exe_path: &Path) -> bool {
         .collect::<Vec<_>>();
     components
         .windows(2)
-        .any(|pair| pair == ["Cellar", "mjolnir"])
+        .any(|pair| pair == ["Cellar", "belgr"])
 }
 
 fn cargo_install_root(exe_path: &Path, current_version: &str) -> Option<PathBuf> {
@@ -729,7 +729,7 @@ fn cargo_install_root(exe_path: &Path, current_version: &str) -> Option<PathBuf>
     let install_root = bin_dir.parent()?;
     cargo_install_recorded(
         install_root,
-        "brokk-mjolnir",
+        "belgr",
         Some(current_version),
         BIN_NAME,
     )
@@ -842,7 +842,7 @@ fn select_mj_asset(assets: &[ReleaseAsset], platform: &Platform) -> Result<Relea
 }
 
 fn is_mj_archive(name: &str) -> bool {
-    name.starts_with("brokk-mjolnir-") && (name.ends_with(".tar.gz") || name.ends_with(".zip"))
+    name.starts_with("belgr-") && (name.ends_with(".tar.gz") || name.ends_with(".zip"))
 }
 
 fn platform_archive_ext(platform: &Platform) -> &'static str {
@@ -958,21 +958,21 @@ mod tests {
     fn managed_install_methods_provide_their_own_update_commands() {
         assert_eq!(
             InstallMethod::Npm.update_command().as_deref(),
-            Some("npm install -g @brokkai/mjolnir@latest")
+            Some("npm install -g belgr@latest")
         );
         assert_eq!(
             InstallMethod::Npx.update_command().as_deref(),
-            Some("npx -y @brokkai/mjolnir@latest")
+            Some("npx -y belgr@latest")
         );
         assert_eq!(
             InstallMethod::Homebrew.update_command().as_deref(),
-            Some("brew upgrade mjolnir")
+            Some("brew upgrade belgr")
         );
         assert_eq!(
             InstallMethod::Cargo { voice_worker: true }
                 .update_command()
                 .as_deref(),
-            Some("cargo install --locked brokk-mjolnir brokk-mj-voice-worker")
+            Some("cargo install --locked belgr belgr-mj-voice-worker")
         );
         assert_eq!(InstallMethod::Direct.update_command(), None);
     }
@@ -987,7 +987,7 @@ mod tests {
             )
             .as_deref(),
             Some(
-                "mj 1.15.0 is available through Homebrew; current version is 1.14.1. Run: brew upgrade mjolnir"
+                "mj 1.15.0 is available through Homebrew; current version is 1.14.1. Run: brew upgrade belgr"
             )
         );
     }
@@ -995,7 +995,7 @@ mod tests {
     #[test]
     fn parses_homebrew_formula_version() {
         let formula = r#"
-class Mjolnir < Formula
+class Belgr < Formula
   version "1.15.2"
 end
 "#;
@@ -1025,14 +1025,14 @@ end
     fn detects_homebrew_cellar_on_macos_and_linux() {
         assert_eq!(
             install_method_from_exe(
-                Path::new("/opt/homebrew/Cellar/mjolnir/1.14.1/libexec/mj"),
+                Path::new("/opt/homebrew/Cellar/belgr/1.14.1/libexec/belgr"),
                 "1.14.1"
             ),
             InstallMethod::Homebrew
         );
         assert_eq!(
             install_method_from_exe(
-                Path::new("/home/linuxbrew/.linuxbrew/Cellar/mjolnir/1.14.1/libexec/mj"),
+                Path::new("/home/linuxbrew/.linuxbrew/Cellar/belgr/1.14.1/libexec/belgr"),
                 "1.14.1"
             ),
             InstallMethod::Homebrew
@@ -1053,8 +1053,8 @@ end
         std::fs::write(
             root.path().join(".crates.toml"),
             r#"[v1]
-"brokk-mjolnir 1.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = ["mj"]
-"brokk-mj-voice-worker 1.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = ["mj-voice-worker"]
+"belgr 1.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = ["belgr"]
+"belgr-mj-voice-worker 1.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = ["belgr-voice-worker"]
 "#,
         )
         .expect("manifest");
@@ -1078,7 +1078,7 @@ end
         std::fs::write(&executable, b"mj").expect("executable");
         std::fs::write(
             root.path().join(".crates2.json"),
-            r#"{"installs":{"brokk-mjolnir 1.14.0 (registry+https://github.com/rust-lang/crates.io-index)":{"bins":["mj"]}}}"#,
+            r#"{"installs":{"belgr 1.14.0 (registry+https://github.com/rust-lang/crates.io-index)":{"bins":["belgr"]}}}"#,
         )
         .expect("manifest");
 
@@ -1093,8 +1093,8 @@ end
         let release = GitHubRelease {
             tag_name: "v0.5.0".to_string(),
             assets: vec![
-                asset("brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"),
-                asset("brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256"),
+                asset("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"),
+                asset("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256"),
             ],
         };
 
@@ -1109,11 +1109,11 @@ end
         assert_eq!(update.version, Version::parse("0.5.0").expect("version"));
         assert_eq!(
             update.asset.name,
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"
         );
         assert_eq!(
             update.checksum_asset.name,
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
         );
     }
 
@@ -1122,7 +1122,7 @@ end
         let release = GitHubRelease {
             tag_name: "v0.5.0".to_string(),
             assets: vec![asset(
-                "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
+                "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
             )],
         };
 
@@ -1135,7 +1135,7 @@ end
 
         assert!(
             err.to_string()
-                .contains("missing required checksum asset brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256")
+                .contains("missing required checksum asset belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256")
         );
     }
 
@@ -1144,7 +1144,7 @@ end
         let release = GitHubRelease {
             tag_name: "v0.4.2".to_string(),
             assets: vec![asset(
-                "brokk-mjolnir-v0.4.2-x86_64-unknown-linux-gnu.tar.gz",
+                "belgr-v0.4.2-x86_64-unknown-linux-gnu.tar.gz",
             )],
         };
 
@@ -1161,69 +1161,69 @@ end
     #[test]
     fn macos_prefers_universal_asset() {
         let assets = vec![
-            asset("brokk-mjolnir-v0.5.0-aarch64-apple-darwin.tar.gz"),
-            asset("brokk-mjolnir-v0.5.0-universal-apple-darwin.tar.gz"),
+            asset("belgr-v0.5.0-aarch64-apple-darwin.tar.gz"),
+            asset("belgr-v0.5.0-universal-apple-darwin.tar.gz"),
         ];
 
         let selected = select_mj_asset(&assets, &mac_arm()).expect("select");
 
         assert_eq!(
             selected.name,
-            "brokk-mjolnir-v0.5.0-universal-apple-darwin.tar.gz"
+            "belgr-v0.5.0-universal-apple-darwin.tar.gz"
         );
     }
 
     #[test]
     fn linux_selects_target_asset() {
         let assets = vec![
-            asset("brokk-mjolnir-v0.5.0-aarch64-unknown-linux-gnu.tar.gz"),
-            asset("brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"),
+            asset("belgr-v0.5.0-aarch64-unknown-linux-gnu.tar.gz"),
+            asset("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"),
         ];
 
         let selected = select_mj_asset(&assets, &linux_x64()).expect("select");
 
         assert_eq!(
             selected.name,
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"
         );
     }
 
     #[test]
     fn windows_selects_zip_asset() {
         let assets = vec![
-            asset("brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"),
-            asset("brokk-mjolnir-v0.5.0-x86_64-pc-windows-msvc.zip"),
+            asset("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz"),
+            asset("belgr-v0.5.0-x86_64-pc-windows-msvc.zip"),
         ];
 
         let selected = select_mj_asset(&assets, &windows_x64()).expect("select");
 
         assert_eq!(
             selected.name,
-            "brokk-mjolnir-v0.5.0-x86_64-pc-windows-msvc.zip"
+            "belgr-v0.5.0-x86_64-pc-windows-msvc.zip"
         );
     }
 
     #[test]
     fn android_selects_android_asset() {
         let assets = vec![
-            asset("brokk-mjolnir-v0.5.0-aarch64-unknown-linux-gnu.tar.gz"),
-            asset("brokk-mjolnir-v0.5.0-aarch64-linux-android.tar.gz"),
+            asset("belgr-v0.5.0-aarch64-unknown-linux-gnu.tar.gz"),
+            asset("belgr-v0.5.0-aarch64-linux-android.tar.gz"),
         ];
 
         let selected = select_mj_asset(&assets, &android_arm()).expect("select");
 
         assert_eq!(
             selected.name,
-            "brokk-mjolnir-v0.5.0-aarch64-linux-android.tar.gz"
+            "belgr-v0.5.0-aarch64-linux-android.tar.gz"
         );
     }
 
     #[test]
     fn extract_mj_binary_finds_nested_binary() {
-        let archive = make_tar_gz("brokk-mjolnir/bin/mj", b"binary bytes");
+        let archive = make_tar_gz("belgr/bin/belgr", b"binary bytes");
 
         let binary = extract_mj_binary(
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
             &archive,
         )
         .expect("extract");
@@ -1233,9 +1233,9 @@ end
 
     #[test]
     fn extract_mj_binary_finds_windows_zip_binary() {
-        let archive = make_zip("brokk-mjolnir/mj.exe", b"windows binary bytes");
+        let archive = make_zip("belgr/belgr.exe", b"windows binary bytes");
 
-        let binary = extract_mj_binary("brokk-mjolnir-v0.5.0-x86_64-pc-windows-msvc.zip", &archive)
+        let binary = extract_mj_binary("belgr-v0.5.0-x86_64-pc-windows-msvc.zip", &archive)
             .expect("extract");
 
         assert_eq!(binary, b"windows binary bytes");
@@ -1243,10 +1243,10 @@ end
 
     #[test]
     fn extract_voice_worker_finds_unix_sidecar() {
-        let archive = make_tar_gz("brokk-mjolnir/bin/mj-voice-worker", b"voice worker bytes");
+        let archive = make_tar_gz("belgr/bin/belgr-voice-worker", b"voice worker bytes");
 
         let binary = extract_voice_worker_binary(
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
             &archive,
         )
         .expect("extract voice worker");
@@ -1257,12 +1257,12 @@ end
     #[test]
     fn extract_voice_worker_finds_windows_sidecar() {
         let archive = make_zip(
-            "brokk-mjolnir/mj-voice-worker.exe",
+            "belgr/belgr-voice-worker.exe",
             b"windows voice worker bytes",
         );
 
         let binary = extract_voice_worker_binary(
-            "brokk-mjolnir-v0.5.0-x86_64-pc-windows-msvc.zip",
+            "belgr-v0.5.0-x86_64-pc-windows-msvc.zip",
             &archive,
         )
         .expect("extract voice worker");
@@ -1272,10 +1272,10 @@ end
 
     #[test]
     fn optional_voice_worker_extracts_when_bundled() {
-        let archive = make_tar_gz("brokk-mjolnir/mj-voice-worker", b"voice worker bytes");
+        let archive = make_tar_gz("belgr/belgr-voice-worker", b"voice worker bytes");
 
         let binary = extract_optional_voice_worker(
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
             &archive,
         )
         .expect("bundled voice worker");
@@ -1285,10 +1285,10 @@ end
 
     #[test]
     fn optional_voice_worker_tolerates_archives_without_one() {
-        let archive = make_tar_gz("brokk-mjolnir/mj", b"binary bytes");
+        let archive = make_tar_gz("belgr/belgr", b"binary bytes");
 
         let binary = extract_optional_voice_worker(
-            "brokk-mjolnir-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
+            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
             &archive,
         );
 
@@ -1301,7 +1301,7 @@ end
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let mj = dir.path().join("mj");
+        let mj = dir.path().join("belgr");
         std::fs::write(&mj, b"main").expect("write mj");
         install_voice_worker(&mj, b"worker").expect("install worker");
 
@@ -1331,7 +1331,7 @@ end
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let target = dir.path().join("mj");
+        let target = dir.path().join("belgr");
         std::fs::write(&target, b"old").expect("write target");
         std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755))
             .expect("chmod target");
@@ -1359,7 +1359,7 @@ end
     fn replace_current_exe_resolves_symlink_before_replacing() {
         let dir = tempfile::tempdir().expect("tempdir");
         let target = dir.path().join("mj-real");
-        let link = dir.path().join("mj");
+        let link = dir.path().join("belgr");
         std::fs::write(&target, b"old").expect("write target");
         std::os::unix::fs::symlink(&target, &link).expect("symlink");
 

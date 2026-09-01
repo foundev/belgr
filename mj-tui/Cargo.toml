@@ -1,5 +1,5 @@
 [package]
-name = "brokk-mj-tui"
+name = "belgr-mj-tui"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

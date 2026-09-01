@@ -12,30 +12,30 @@ ARCH=""
 RUST_TARGET=""
 
 log() {
-  printf 'mjolnir-installer: %s\n' "$*"
+  printf 'belgr-installer: %s\n' "$*"
 }
 
 warn() {
-  printf 'mjolnir-installer: warning: %s\n' "$*" >&2
+  printf 'belgr-installer: warning: %s\n' "$*" >&2
 }
 
 die() {
-  printf 'mjolnir-installer: error: %s\n' "$*" >&2
+  printf 'belgr-installer: error: %s\n' "$*" >&2
   exit 1
 }
 
 usage() {
   cat <<EOF
-Install the latest Mjolnir binaries.
+Install the latest Belgr binaries.
 
 Usage:
-  curl -fsSL https://raw.githubusercontent.com/BrokkAi/mjolnir/master/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/foundev/belgr/master/install.sh | bash
 
 Environment:
   INSTALL_DIR              Install directory. Defaults to ~/.local/bin.
   MJOLNIR_INSTALL_DIR      Same as INSTALL_DIR, with higher precedence.
   MJOLNIR_GITHUB_OWNER     GitHub owner to download from. Defaults to BrokkAi.
-  MJOLNIR_VERSION          Optional mjolnir tag to install, for example v0.3.4.
+  BELGR_VERSION          Optional belgr tag to install, for example v0.3.4.
   GITHUB_TOKEN             Optional token for GitHub API rate limits.
   PROFILE                  Optional shell profile to update when INSTALL_DIR is not on PATH.
 EOF
@@ -211,7 +211,7 @@ fetch_checksum() {
 }
 
 stored_checksum_path() {
-  printf '%s/.cache/mjolnir-installer/checksums/%s.sha256\n' "$HOME" "$1"
+  printf '%s/.cache/belgr-installer/checksums/%s.sha256\n' "$HOME" "$1"
 }
 
 hash_file() {
@@ -342,7 +342,7 @@ append_install_dir_to_profile() {
   fi
 
   {
-    printf '\n# Added by mjolnir installer\n'
+    printf '\n# Added by belgr installer\n'
     printf '%s\n' "$line"
   } >>"$profile" || {
     warn "could not update ${profile}; add this manually: ${line}"
@@ -383,7 +383,7 @@ ensure_install_dir_on_path() {
     return 0
   fi
 
-  printf 'mjolnir-installer: %s is not on PATH. Add it to %s? [Y/n] ' "$INSTALL_DIR" "$profile" >/dev/tty
+  printf 'belgr-installer: %s is not on PATH. Add it to %s? [Y/n] ' "$INSTALL_DIR" "$profile" >/dev/tty
   read -r answer </dev/tty || answer=""
 
   case "$answer" in
@@ -515,19 +515,19 @@ install_from_asset() {
   esac
 }
 
-install_mjolnir() {
+install_belgr() {
   local -a patterns=()
 
   if [[ "$OS_FAMILY" == "macos" ]]; then
-    patterns+=("^brokk-mjolnir-.*-universal-apple-darwin[.]tar[.]gz$")
+    patterns+=("^belgr-.*-universal-apple-darwin[.]tar[.]gz$")
   fi
-  patterns+=("^brokk-mjolnir-.*-${RUST_TARGET}[.]tar[.]gz$")
+  patterns+=("^belgr-.*-${RUST_TARGET}[.]tar[.]gz$")
 
-  local companion="mj-voice-worker"
+  local companion="belgr-voice-worker"
   if [[ "$OS_FAMILY" == "android" ]]; then
     companion=""
   fi
-  install_from_asset "mjolnir" "mjolnir" "mj" "${MJOLNIR_VERSION:-}" "$companion" "${patterns[@]}"
+  install_from_asset "belgr" "belgr" "belgr" "${BELGR_VERSION:-}" "$companion" "${patterns[@]}"
 }
 
 main() {
@@ -547,11 +547,11 @@ main() {
   detect_platform
   ensure_install_dir
 
-  TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mjolnir-installer.XXXXXX")"
+  TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/belgr-installer.XXXXXX")"
   trap cleanup EXIT
 
   log "installing for ${OS_FAMILY}/${ARCH} into ${INSTALL_DIR} (script ${SCRIPT_VERSION})"
-  install_mjolnir
+  install_belgr
 
   ensure_install_dir_on_path
 

@@ -1,5 +1,5 @@
 [package]
-name = "brokk-mj-anvil"
+name = "belgr-mj-anvil"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

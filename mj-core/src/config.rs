@@ -1670,7 +1670,7 @@ fn migrate_v6(body: &str) -> Result<Config> {
 pub fn default_config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("mj")
+        .join("belgr")
         .join("config.toml")
 }
 
@@ -1802,7 +1802,7 @@ pub fn save_user_config(path: &Path, config: &Config) -> Result<()> {
 /// Directory for exported conversation transcripts:
 /// `$XDG_CONFIG_HOME/mj/transcripts`.
 pub fn transcript_export_dir() -> Option<PathBuf> {
-    dirs::config_dir().map(|dir| dir.join("mj").join("transcripts"))
+    dirs::config_dir().map(|dir| dir.join("belgr").join("transcripts"))
 }
 
 /// Path for the persisted prompt-history file (NUL-delimited format to
@@ -1810,7 +1810,7 @@ pub fn transcript_export_dir() -> Option<PathBuf> {
 pub fn history_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("mj")
+        .join("belgr")
         .join("history.txt")
 }
 

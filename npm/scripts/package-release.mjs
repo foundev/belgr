@@ -10,58 +10,58 @@ const execFile = promisify(execFileCallback);
 const npmRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = path.resolve(npmRoot, "..");
 
-export const ROOT_PACKAGE = "@brokkai/mjolnir";
+export const ROOT_PACKAGE = "belgr";
 
 export const PLATFORMS = [
   {
-    packageName: "@brokkai/mjolnir-darwin-universal",
+    packageName: "belgr-darwin-universal",
     target: "universal-apple-darwin",
     extension: ".tar.gz",
-    binary: "mj",
+    binary: "belgr",
     desktop: true,
-    description: "Native universal macOS bundle for @brokkai/mjolnir",
+    description: "Native universal macOS bundle for belgr",
     os: ["darwin"],
     cpu: ["x64", "arm64"],
   },
   {
-    packageName: "@brokkai/mjolnir-linux-x64-gnu",
+    packageName: "belgr-linux-x64-gnu",
     target: "x86_64-unknown-linux-gnu",
     extension: ".tar.gz",
-    binary: "mj",
+    binary: "belgr",
     desktop: true,
-    description: "Native Linux x64 glibc bundle for @brokkai/mjolnir",
+    description: "Native Linux x64 glibc bundle for belgr",
     os: ["linux"],
     cpu: ["x64"],
     libc: ["glibc"],
   },
   {
-    packageName: "@brokkai/mjolnir-linux-arm64-gnu",
+    packageName: "belgr-linux-arm64-gnu",
     target: "aarch64-unknown-linux-gnu",
     extension: ".tar.gz",
-    binary: "mj",
+    binary: "belgr",
     desktop: true,
-    description: "Native Linux ARM64 glibc bundle for @brokkai/mjolnir",
+    description: "Native Linux ARM64 glibc bundle for belgr",
     os: ["linux"],
     cpu: ["arm64"],
     libc: ["glibc"],
   },
   {
-    packageName: "@brokkai/mjolnir-android-arm64",
+    packageName: "belgr-android-arm64",
     target: "aarch64-linux-android",
     extension: ".tar.gz",
-    binary: "mj",
+    binary: "belgr",
     desktop: false,
-    description: "Native Android ARM64 bundle for @brokkai/mjolnir",
+    description: "Native Android ARM64 bundle for belgr",
     os: ["android"],
     cpu: ["arm64"],
   },
   {
-    packageName: "@brokkai/mjolnir-win32-x64",
+    packageName: "belgr-win32-x64",
     target: "x86_64-pc-windows-msvc",
     extension: ".zip",
-    binary: "mj.exe",
+    binary: "belgr.exe",
     desktop: true,
-    description: "Native Windows x64 bundle for @brokkai/mjolnir",
+    description: "Native Windows x64 bundle for belgr",
     os: ["win32"],
     cpu: ["x64"],
   },
@@ -85,9 +85,9 @@ function baseManifest(version) {
   return {
     version,
     license: "GPL-3.0-only",
-    repository: "https://github.com/BrokkAi/mjolnir",
-    homepage: "https://mjolnir.brokk.ai/",
-    bugs: "https://github.com/BrokkAi/mjolnir/issues",
+    repository: "https://github.com/BrokkAi/belgr",
+    homepage: "https://belgr.brokk.ai/",
+    bugs: "https://github.com/BrokkAi/belgr/issues",
     publishConfig: { access: "public" },
   };
 }
@@ -108,9 +108,9 @@ export function rootManifest(version) {
   return {
     name: ROOT_PACKAGE,
     ...baseManifest(version),
-    description: "Mjolnir terminal client for Agent Client Protocol servers",
+    description: "Belgr terminal client for Agent Client Protocol servers",
     type: "module",
-    bin: { mj: "bin/mj.js" },
+    bin: { belgr: "bin/belgr.js" },
     files: ["bin/", "README.md", "LICENSE"],
     optionalDependencies: Object.fromEntries(
       PLATFORMS.map((platform) => [platform.packageName, version]),
@@ -124,7 +124,7 @@ function packageDirectory(packageName) {
 }
 
 function archiveName(version, platform) {
-  return `brokk-mjolnir-v${version}-${platform.target}${platform.extension}`;
+  return `brokk-belgr-v${version}-${platform.target}${platform.extension}`;
 }
 
 async function writeManifest(directory, manifest) {
@@ -176,11 +176,11 @@ async function stagePlatform(platform, version, source, stagingRoot) {
   }
   await cp(path.join(source, platform.binary), path.join(destination, "bin", platform.binary));
   if (platform.desktop) {
-    const worker = platform.binary === "mj.exe" ? "mj-voice-worker.exe" : "mj-voice-worker";
+    const worker = platform.binary === "belgr.exe" ? "belgr-voice-worker.exe" : "belgr-voice-worker";
     await cp(path.join(source, worker), path.join(destination, "bin", worker));
-    await ensureBinary(path.join(destination, "bin", worker), platform.binary !== "mj.exe");
+    await ensureBinary(path.join(destination, "bin", worker), platform.binary !== "belgr.exe");
   }
-  await ensureBinary(path.join(destination, "bin", platform.binary), platform.binary !== "mj.exe");
+  await ensureBinary(path.join(destination, "bin", platform.binary), platform.binary !== "belgr.exe");
   await writeManifest(destination, platformManifest(platform, version));
   return destination;
 }
@@ -188,7 +188,7 @@ async function stagePlatform(platform, version, source, stagingRoot) {
 async function stageRoot(version, stagingRoot) {
   const destination = path.join(stagingRoot, packageDirectory(ROOT_PACKAGE));
   await mkdir(path.join(destination, "bin"), { recursive: true });
-  await cp(path.join(npmRoot, "launcher", "mj.js"), path.join(destination, "bin", "mj.js"));
+  await cp(path.join(npmRoot, "launcher", "belgr.js"), path.join(destination, "bin", "belgr.js"));
   await cp(path.join(npmRoot, "launcher", "README.md"), path.join(destination, "README.md"));
   await cp(path.join(repositoryRoot, "LICENSE"), path.join(destination, "LICENSE"));
   await writeManifest(destination, rootManifest(version));
@@ -209,7 +209,7 @@ export async function packageRelease({ releaseTag, assetsDirectory, outputDirect
   const output = path.resolve(outputDirectory ?? path.join(npmRoot, "dist"));
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
-  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "mjolnir-npm-"));
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "belgr-npm-"));
   try {
     for (const platform of PLATFORMS) {
       const archive = path.join(assetsDirectory, archiveName(version, platform));

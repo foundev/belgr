@@ -255,7 +255,7 @@ impl WorkspaceSnapshot {
     }
 
     /// Capture the workspace while ignoring only the configured artifact
-    /// files. Relative exclusions are resolved against the Mjolnir process
+    /// files. Relative exclusions are resolved against the Belgr process
     /// cwd, matching how debug and agent-stderr paths are opened.
     pub async fn capture_excluding(
         workspace_roots: &[PathBuf],
@@ -933,8 +933,8 @@ mod tests {
 
     fn init_repo(root: &Path) {
         git(root, &["init", "-q"]);
-        git(root, &["config", "user.email", "mjolnir@example.test"]);
-        git(root, &["config", "user.name", "Mjolnir Tests"]);
+        git(root, &["config", "user.email", "belgr@example.test"]);
+        git(root, &["config", "user.name", "Belgr Tests"]);
     }
 
     fn commit_all(root: &Path) {
@@ -1372,14 +1372,14 @@ mod tests {
         )
         .await;
 
-        std::fs::write(&runtime_log, "Mjolnir runtime output\n").expect("runtime log");
+        std::fs::write(&runtime_log, "Belgr runtime output\n").expect("runtime log");
         std::fs::write(&user_log, "agent-created output\n").expect("user log");
 
         let delta = snapshot.delta().await;
         assert!(delta.changed());
         let patch = delta.review_patch().expect("review patch");
         assert!(patch.contains("logs/agent.log"), "{patch}");
-        assert!(!patch.contains("Mjolnir runtime output"), "{patch}");
+        assert!(!patch.contains("Belgr runtime output"), "{patch}");
     }
 
     #[cfg(all(unix, not(target_vendor = "apple")))]

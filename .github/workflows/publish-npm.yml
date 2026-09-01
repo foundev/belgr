@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing Mjolnir release tag to package, in the form vX.Y.Z
+        description: Existing Belgr release tag to package, in the form vX.Y.Z
         required: true
         type: string
       publish:
@@ -58,12 +58,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir release-assets
-          gh release download "$RELEASE_TAG" --repo BrokkAi/mjolnir \
+          gh release download "$RELEASE_TAG" --repo foundev/belgr \
             --dir release-assets \
-            --pattern 'brokk-mjolnir-*.tar.gz' \
-            --pattern 'brokk-mjolnir-*.tar.gz.sha256' \
-            --pattern 'brokk-mjolnir-*.zip' \
-            --pattern 'brokk-mjolnir-*.zip.sha256'
+            --pattern 'belgr-*.tar.gz' \
+            --pattern 'belgr-*.tar.gz.sha256' \
+            --pattern 'belgr-*.zip' \
+            --pattern 'belgr-*.zip.sha256'
 
       - name: Run npm packaging tests
         working-directory: npm
@@ -87,11 +87,11 @@ jobs:
           version="$(sed -n '/^\[workspace\.package\]$/,/^\[/s/^version = "\([^"]*\)"$/\1/p' Cargo.toml | head -n 1)"
           mkdir npm-smoke
           npm install --prefix npm-smoke --ignore-scripts \
-            "npm/dist/brokkai-mjolnir-$version.tgz" \
-            "npm/dist/brokkai-mjolnir-linux-x64-gnu-$version.tgz"
-          test -x npm-smoke/node_modules/@brokkai/mjolnir-linux-x64-gnu/bin/mj
-          test -x npm-smoke/node_modules/@brokkai/mjolnir-linux-x64-gnu/bin/mj-voice-worker
-          npm-smoke/node_modules/.bin/mj --version
+            "npm/dist/belgr-$version.tgz" \
+            "npm/dist/belgr-linux-x64-gnu-$version.tgz"
+          test -x npm-smoke/node_modules/belgr-linux-x64-gnu/bin/belgr
+          test -x npm-smoke/node_modules/belgr-linux-x64-gnu/bin/belgr-voice-worker
+          npm-smoke/node_modules/.bin/belgr --version
 
       - uses: actions/upload-artifact@v7
         with:
@@ -145,18 +145,18 @@ jobs:
             return 1
           }
           packages=(
-            @brokkai/mjolnir-darwin-universal
-            @brokkai/mjolnir-linux-x64-gnu
-            @brokkai/mjolnir-linux-arm64-gnu
-            @brokkai/mjolnir-android-arm64
-            @brokkai/mjolnir-win32-x64
+            belgr-darwin-universal
+            belgr-linux-x64-gnu
+            belgr-linux-arm64-gnu
+            belgr-android-arm64
+            belgr-win32-x64
           )
           tarballs=(
-            brokkai-mjolnir-darwin-universal-$version.tgz
-            brokkai-mjolnir-linux-x64-gnu-$version.tgz
-            brokkai-mjolnir-linux-arm64-gnu-$version.tgz
-            brokkai-mjolnir-android-arm64-$version.tgz
-            brokkai-mjolnir-win32-x64-$version.tgz
+            belgr-darwin-universal-$version.tgz
+            belgr-linux-x64-gnu-$version.tgz
+            belgr-linux-arm64-gnu-$version.tgz
+            belgr-android-arm64-$version.tgz
+            belgr-win32-x64-$version.tgz
           )
           for index in "${!packages[@]}"; do
             package="${packages[$index]}@$version"
@@ -165,8 +165,8 @@ jobs:
             fi
             wait_for_version "$package"
           done
-          root=@brokkai/mjolnir
+          root=belgr
           if ! npm view "$root@$version" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
-            npm publish "./npm-tarballs/brokkai-mjolnir-$version.tgz" --access public --provenance
+            npm publish "./npm-tarballs/belgr-$version.tgz" --access public --provenance
           fi
           wait_for_version "$root@$version"

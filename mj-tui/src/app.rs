@@ -712,7 +712,7 @@ const FEATURE_HINTS: &[FeatureHint] = &[
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
-        text: "Send another instruction while an agent is working; Mjolnir queues it and can steer supported agents into the active turn.",
+        text: "Send another instruction while an agent is working; Belgr queues it and can steer supported agents into the active turn.",
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
@@ -720,7 +720,7 @@ const FEATURE_HINTS: &[FeatureHint] = &[
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
-        text: "Mjolnir's primary agent can launch specialist subagents in parallel, collect their reports, and retain their transcripts.",
+        text: "Belgr's primary agent can launch specialist subagents in parallel, collect their reports, and retain their transcripts.",
         requirement: FeatureHintRequirement::Subagents,
     },
     FeatureHint {
@@ -736,7 +736,7 @@ const FEATURE_HINTS: &[FeatureHint] = &[
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
-        text: "Mjolnir can automatically review changed turns, track validated findings in the Review Board, and correct them according to your policy.",
+        text: "Belgr can automatically review changed turns, track validated findings in the Review Board, and correct them according to your policy.",
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
@@ -788,7 +788,7 @@ const FEATURE_HINTS: &[FeatureHint] = &[
         requirement: FeatureHintRequirement::Desktop,
     },
     FeatureHint {
-        text: "Keep awake under Appearance controls whether Mjolnir prevents system sleep while the server runs or a turn is in flight.",
+        text: "Keep awake under Appearance controls whether Belgr prevents system sleep while the server runs or a turn is in flight.",
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
@@ -796,7 +796,7 @@ const FEATURE_HINTS: &[FeatureHint] = &[
         requirement: FeatureHintRequirement::Always,
     },
     FeatureHint {
-        text: "Mjolnir synchronizes verified project knowledge locally across Codex and Claude, so switching providers does not erase repository context.",
+        text: "Belgr synchronizes verified project knowledge locally across Codex and Claude, so switching providers does not erase repository context.",
         requirement: FeatureHintRequirement::Always,
     },
 ];
@@ -1519,7 +1519,7 @@ pub struct AppState {
     /// checkout this session belongs to without leaking nested worktree paths.
     pub project_label: String,
     /// Short linked-worktree name shown separately from the project when
-    /// the session runs under `.mjolnir/worktrees/`.
+    /// the session runs under `.belgr/worktrees/`.
     pub worktree_label: Option<String>,
     /// Number of extra ACP workspace roots active for this session.
     pub additional_roots: usize,
@@ -2135,7 +2135,7 @@ fn fallback_workspace_files(root: &Path, limit: usize) -> Vec<PathBuf> {
                 let name = name.to_string_lossy();
                 if !matches!(
                     name.as_ref(),
-                    ".git" | ".hg" | ".mjolnir" | ".svn" | "node_modules" | "target"
+                    ".git" | ".hg" | ".belgr" | ".svn" | "node_modules" | "target"
                 ) {
                     pending.push(path);
                 }
@@ -5266,7 +5266,7 @@ impl AppState {
         }
         let sequence = NESTED_HISTORY_DIR_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "mjolnir-nested-history-{}-{sequence}",
+            "belgr-nested-history-{}-{sequence}",
             std::process::id()
         ));
         std::fs::create_dir(&path)?;
@@ -10767,7 +10767,7 @@ mod tests {
     #[test]
     fn elicitation_request_and_response_round_trip() {
         // Pins the `#[serde(flatten)]` + `tag = "mode"` / `tag = "action"`
-        // wire framing that mjolnir and its ACP agents must agree on.
+        // wire framing that belgr and its ACP agents must agree on.
         let form_req = CreateElicitationRequest::new(
             ElicitationMode::from(ElicitationFormMode::new(
                 ElicitationSessionScope::new("s".to_string()),

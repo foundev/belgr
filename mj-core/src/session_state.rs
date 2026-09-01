@@ -424,14 +424,14 @@ fn raw_input_path(raw_input: &serde_json::Value) -> Option<String> {
         })
 }
 
-/// Whether a tool call is the transport wrapper for a Mjolnir subagent command.
+/// Whether a tool call is the transport wrapper for a Belgr subagent command.
 pub fn is_subagent_transport_call(tool_call: &ToolCall) -> bool {
     subagent_identity_from_raw_input(tool_call.raw_input.as_ref())
         || subagent_identity_from_name(&tool_call.title)
         || subagent_identity_from_meta(tool_call.meta.as_ref())
 }
 
-/// Whether a tool update is the transport wrapper for a Mjolnir subagent command.
+/// Whether a tool update is the transport wrapper for a Belgr subagent command.
 pub fn is_subagent_transport_update(update: &ToolCallUpdate) -> bool {
     subagent_identity_from_raw_input(update.fields.raw_input.as_ref())
         || update
@@ -632,14 +632,14 @@ mod tests {
             ToolCallUpdateFields::new()
                 .kind(ToolKind::Execute)
                 .raw_input(serde_json::json!({
-                    "command": "cargo test -p brokk-mj-remote",
+                    "command": "cargo test -p belgr-mj-remote",
                     "cwd": "/repo",
                 })),
         );
 
         assert_eq!(
             permission_prompt_title(&tool_call),
-            "cargo test -p brokk-mj-remote"
+            "cargo test -p belgr-mj-remote"
         );
     }
 

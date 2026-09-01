@@ -1,4 +1,4 @@
-//! Remote-control server and web viewer for Mjolnir.
+//! Remote-control server and web viewer for Belgr.
 
 mod qr;
 pub mod remote;

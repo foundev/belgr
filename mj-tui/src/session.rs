@@ -16,7 +16,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::ink::InkStyle;
 use crate::palette::TerminalTheme;
 use crate::term::TrackedBackend;
-use crate::version::mjolnir_version_label;
+use crate::version::belgr_version_label;
 
 pub use mj_core::session::*;
 
@@ -263,7 +263,7 @@ fn draw_session_picker(f: &mut ratatui::Frame, state: &SessionPickerState, theme
         .split(f.area());
 
     // Header
-    let header = Paragraph::new(format!(" {} | resume a session ", mjolnir_version_label()))
+    let header = Paragraph::new(format!(" {} | resume a session ", belgr_version_label()))
         .style(Style::default().add_modifier(Modifier::REVERSED));
     f.render_widget(header, chunks[0]);
 

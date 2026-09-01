@@ -77,15 +77,15 @@ fn default_next_id() -> u64 {
 pub fn default_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("mj")
+        .join("belgr")
         .join("memories.json")
 }
 
 /// The project a working directory's memories attach to: the enclosing
-/// project when `cwd` is inside a `.mjolnir` worktree, otherwise `cwd`
+/// project when `cwd` is inside a `.belgr` worktree, otherwise `cwd`
 /// itself. Worktree sessions therefore share the parent project's memories.
 pub fn project_key(cwd: &Path) -> PathBuf {
-    crate::paths::parent_above_mjolnir(cwd).unwrap_or_else(|| cwd.to_path_buf())
+    crate::paths::parent_above_belgr(cwd).unwrap_or_else(|| cwd.to_path_buf())
 }
 
 pub fn add(path: &Path, text: &str, project: Option<PathBuf>) -> Result<MemoryEntry> {
@@ -162,7 +162,7 @@ pub fn entries_for_project(path: &Path, project: &Path) -> Result<Vec<MemoryEntr
         .collect())
 }
 
-/// Advisory file lock shared by every mjolnir process using this store. The
+/// Advisory file lock shared by every belgr process using this store. The
 /// lock lives beside the store rather than on it: atomically replacing the
 /// JSON file would otherwise replace the inode carrying the lock.
 fn lock_store(path: &Path) -> Result<std::fs::File> {
@@ -227,8 +227,8 @@ fn now_ms() -> u64 {
 const CLAUDE_AUTO_SOURCE: &str = "claude-auto";
 const CLAUDE_AUTO_READ_LIMIT: usize = 25_000;
 const CLAUDE_AUTO_CHUNK_LIMIT: usize = 1_800;
-const MANAGED_BLOCK_PREFIX: &str = "<!-- mjolnir:shared-memory:start";
-const MANAGED_BLOCK_END: &str = "<!-- mjolnir:shared-memory:end -->";
+const MANAGED_BLOCK_PREFIX: &str = "<!-- belgr:shared-memory:start";
+const MANAGED_BLOCK_END: &str = "<!-- belgr:shared-memory:end -->";
 
 #[derive(Clone, Copy)]
 enum ClaudeImportVisibility {
@@ -543,7 +543,7 @@ fn base36(mut value: u32) -> String {
 
 /// Synchronize the shared store into the native Claude Code and Codex memory
 /// locations for `project`. This is deliberately file-based: neither provider
-/// receives a synthetic user prompt from Mjolnir.
+/// receives a synthetic user prompt from Belgr.
 pub fn synchronize_native_memories(store_path: &Path, project: &Path) -> Result<()> {
     let (claude, visibility) = match claude_auto_memory_path(project) {
         ClaudeMemoryResolution::Location(location) => {
@@ -579,7 +579,7 @@ pub fn synchronize_native_memories(store_path: &Path, project: &Path) -> Result<
     )
 }
 
-/// Remove Mjolnir-owned native memory blocks when native memory use is
+/// Remove Belgr-owned native memory blocks when native memory use is
 /// disabled. Provider-owned content and the shared store are left untouched.
 pub fn remove_managed_native_memories(project: &Path) -> Result<()> {
     let claude = match claude_auto_memory_path(project) {
@@ -669,7 +669,7 @@ fn remove_managed_native_memories_at(
     }
     if let Some(root) = codex_root {
         // Codex's memory files are global to its installation, so disabling
-        // native memory use must remove blocks from every Mjolnir project.
+        // native memory use must remove blocks from every Belgr project.
         remove_all_managed_blocks(&root.join("MEMORY.md"))?;
         remove_all_managed_blocks(&root.join("memory_summary.md"))?;
     }
@@ -703,7 +703,7 @@ fn render_project_block(start: &str, project: &Path, entries: &[MemoryEntry]) ->
     let mut block = String::from(start);
     let _ = write!(
         block,
-        "\n## Mjolnir shared project knowledge ({})\n",
+        "\n## Belgr shared project knowledge ({})\n",
         project.display()
     );
     for entry in entries {
@@ -717,8 +717,8 @@ fn render_project_block(start: &str, project: &Path, entries: &[MemoryEntry]) ->
 fn push_memory_entry(out: &mut String, entry: &MemoryEntry) {
     let text = entry
         .text
-        .replace(MANAGED_BLOCK_PREFIX, "mjolnir shared-memory marker")
-        .replace(MANAGED_BLOCK_END, "mjolnir shared-memory end marker");
+        .replace(MANAGED_BLOCK_PREFIX, "belgr shared-memory marker")
+        .replace(MANAGED_BLOCK_END, "belgr shared-memory end marker");
     let mut lines = text.lines();
     if let Some(first) = lines.next() {
         let _ = write!(out, "\n- {first}");
@@ -820,7 +820,7 @@ fn lock_native_memory(path: &Path) -> Result<std::fs::File> {
     std::fs::create_dir_all(parent)
         .with_context(|| format!("create native memory directory {}", parent.display()))?;
     let mut lock_path = path.as_os_str().to_os_string();
-    lock_path.push(".mjolnir.lock");
+    lock_path.push(".belgr.lock");
     let lock_path = PathBuf::from(lock_path);
     let lock = std::fs::OpenOptions::new()
         .read(true)
@@ -925,7 +925,7 @@ pub struct SessionMemory {
     pub project: PathBuf,
     /// Synchronize stored knowledge into the provider's native memory files.
     pub inject: bool,
-    /// Remove Mjolnir-managed native blocks before the next provider session.
+    /// Remove Belgr-managed native blocks before the next provider session.
     /// This is set when native memory use is disabled, so old blocks cannot
     /// remain active in a provider after the toggle changes.
     pub cleanup: bool,
@@ -1174,7 +1174,7 @@ constraints, build requirements, debugging conclusions, and repository conventio
 short and self-contained. Never save speculation, secrets, credentials, transient task state, or \
 facts trivially visible in source. Call memory_forget when an entry you saved is wrong or obsolete; \
 use ids from /memory or mj memory list. Entries imported from Claude auto-memory cannot be forgotten \
-here; they are owned by MEMORY.md. Mjolnir synchronizes this store into Claude and Codex native \
+here; they are owned by MEMORY.md. Belgr synchronizes this store into Claude and Codex native \
 memory files; it never adds memory text to a user prompt. Do not announce this policy or every \
 automatic save; confirm only user-requested saves and deletions.";
 
@@ -1247,7 +1247,7 @@ impl McpHandler {
 
     #[tool(
         name = "memory_forget",
-        description = "Delete one stored Mjolnir memory by numeric id from /memory or mj memory list. Use when the user asks you to forget something or a stored memory is wrong or obsolete."
+        description = "Delete one stored Belgr memory by numeric id from /memory or mj memory list. Use when the user asks you to forget something or a stored memory is wrong or obsolete."
     )]
     async fn memory_forget(
         &self,
@@ -1446,7 +1446,7 @@ mod tests {
     #[test]
     fn project_key_resolves_worktrees_to_the_enclosing_project() {
         assert_eq!(
-            project_key(Path::new("/home/me/proj/.mjolnir/worktrees/bold-fox")),
+            project_key(Path::new("/home/me/proj/.belgr/worktrees/bold-fox")),
             PathBuf::from("/home/me/proj")
         );
         assert_eq!(
@@ -1458,8 +1458,8 @@ mod tests {
     #[test]
     fn claude_project_directory_name_matches_claude_code_layout() {
         assert_eq!(
-            claude_project_directory_name(Path::new("/home/parallels/code/mjolnir")),
-            "-home-parallels-code-mjolnir"
+            claude_project_directory_name(Path::new("/home/parallels/code/belgr")),
+            "-home-parallels-code-belgr"
         );
     }
 
@@ -1670,7 +1670,7 @@ mod tests {
         let path = dir.path().join("codex/memories/MEMORY.md");
         let _first = lock_native_memory(&path).unwrap();
         let mut lock_path = path.as_os_str().to_os_string();
-        lock_path.push(".mjolnir.lock");
+        lock_path.push(".belgr.lock");
         let second = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -1681,7 +1681,7 @@ mod tests {
     }
 
     #[test]
-    fn claude_import_ignores_mjolnir_managed_memory() {
+    fn claude_import_ignores_belgr_managed_memory() {
         let dir = tempfile::tempdir().unwrap();
         let store_path = store(&dir);
         let project = dir.path().join("project");
@@ -1893,7 +1893,7 @@ mod tests {
         assert!(SessionMemory::from_config(&defaults, project, Some(AdapterKind::Codex)).is_some());
 
         // Disabling native memory keeps a cleanup-only runtime so provider
-        // files cannot continue loading an old Mjolnir block.
+        // files cannot continue loading an old Belgr block.
         let config = crate::config::MemoryConfig {
             enabled: false,
             ..Default::default()

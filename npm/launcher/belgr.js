@@ -10,21 +10,21 @@ const require = createRequire(import.meta.url);
 
 export function platformPackageName(platform = process.platform, arch = process.arch) {
   if (platform === "darwin" && (arch === "arm64" || arch === "x64")) {
-    return "@brokkai/mjolnir-darwin-universal";
+    return "belgr-darwin-universal";
   }
   if (platform === "linux" && arch === "x64") {
-    return "@brokkai/mjolnir-linux-x64-gnu";
+    return "belgr-linux-x64-gnu";
   }
   if (platform === "linux" && arch === "arm64") {
-    return "@brokkai/mjolnir-linux-arm64-gnu";
+    return "belgr-linux-arm64-gnu";
   }
   if (platform === "android" && arch === "arm64") {
-    return "@brokkai/mjolnir-android-arm64";
+    return "belgr-android-arm64";
   }
   if (platform === "win32" && arch === "x64") {
-    return "@brokkai/mjolnir-win32-x64";
+    return "belgr-win32-x64";
   }
-  throw new Error(`Mjolnir does not publish an npm bundle for ${platform}/${arch}.`);
+  throw new Error(`Belgr does not publish an npm bundle for ${platform}/${arch}.`);
 }
 
 export function resolveBundle(resolve = require.resolve, platform = process.platform, arch = process.arch) {
@@ -33,21 +33,21 @@ export function resolveBundle(resolve = require.resolve, platform = process.plat
     return path.dirname(resolve(`${packageName}/package.json`));
   } catch (error) {
     throw new Error(
-      `The ${packageName} native bundle was not installed. Reinstall @brokkai/mjolnir for ${platform}/${arch}.`,
+      `The ${packageName} native bundle was not installed. Reinstall belgr for ${platform}/${arch}.`,
       { cause: error },
     );
   }
 }
 
 export function nativeBinaryPath(bundleRoot, platform = process.platform) {
-  return path.join(bundleRoot, "bin", platform === "win32" ? "mj.exe" : "mj");
+  return path.join(bundleRoot, "bin", platform === "win32" ? "belgr.exe" : "belgr");
 }
 
 export function installMethodEnvironment(env = process.env) {
   if (env.npm_command === "exec") {
-    return { MJOLNIR_MANAGED_BY_NPX: "true" };
+    return { BELGR_MANAGED_BY_NPX: "true" };
   }
-  return { MJOLNIR_MANAGED_BY_NPM: "true" };
+  return { BELGR_MANAGED_BY_NPM: "true" };
 }
 
 const SIGNAL_EXIT_CODES = {
@@ -68,8 +68,8 @@ export function launch(
     ...process.env,
     PATH: `${bundleBin}${path.delimiter}${process.env.PATH ?? ""}`,
   };
-  delete childEnv.MJOLNIR_MANAGED_BY_NPM;
-  delete childEnv.MJOLNIR_MANAGED_BY_NPX;
+  delete childEnv.BELGR_MANAGED_BY_NPM;
+  delete childEnv.BELGR_MANAGED_BY_NPX;
   Object.assign(childEnv, installMethodEnvironment(process.env));
   const child = spawnProcess(nativeBinaryPath(bundleRoot, platform), args, {
     stdio: "inherit",

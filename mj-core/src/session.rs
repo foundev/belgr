@@ -280,7 +280,7 @@ async fn authenticate_with_first_method(
 }
 
 fn client_implementation() -> Implementation {
-    Implementation::new("brokk-mjolnir", env!("CARGO_PKG_VERSION")).title("Mjolnir")
+    Implementation::new("belgr", env!("CARGO_PKG_VERSION")).title("Belgr")
 }
 
 fn is_auth_required(err: &agent_client_protocol::Error) -> bool {
@@ -292,7 +292,7 @@ fn validate_protocol_version(negotiated: ProtocolVersion) -> Result<()> {
         Ok(())
     } else {
         anyhow::bail!(
-            "agent negotiated unsupported ACP protocol version {negotiated}; mjolnir supports ACP {}",
+            "agent negotiated unsupported ACP protocol version {negotiated}; belgr supports ACP {}",
             ProtocolVersion::LATEST
         )
     }
@@ -390,7 +390,7 @@ mod tests {
             .on_receive_request(
                 async move |req: InitializeRequest, responder, _cx| {
                     let client_info = req.client_info.expect("clientInfo");
-                    assert_eq!(client_info.name, "brokk-mjolnir");
+                    assert_eq!(client_info.name, "belgr");
                     assert_eq!(client_info.version, env!("CARGO_PKG_VERSION"));
                     responder.respond(
                         InitializeResponse::new(ProtocolVersion::V1)

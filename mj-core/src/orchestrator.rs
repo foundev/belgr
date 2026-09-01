@@ -453,7 +453,7 @@ pub struct Config {
     /// per-model usage breakdown can attribute them.
     pub primary_model: Option<String>,
     pub review_root: PathBuf,
-    /// Mid-turn review requests made by the primary through Mjolnir's MCP.
+    /// Mid-turn review requests made by the primary through Belgr's MCP.
     pub review_checkpoints: ReviewCheckpointReceiver,
     /// Multi-specialist review plan. An unavailable plan carries the source
     /// error that must be shown if the primary fallback is used.
@@ -3663,8 +3663,8 @@ mod tests {
             );
         };
         git(&["init", "-q"]);
-        git(&["config", "user.email", "mjolnir@example.test"]);
-        git(&["config", "user.name", "Mjolnir Tests"]);
+        git(&["config", "user.email", "belgr@example.test"]);
+        git(&["config", "user.name", "Belgr Tests"]);
         std::fs::write(root.join("tracked.txt"), "baseline\n").expect("write baseline");
         git(&["add", "-A"]);
         git(&["commit", "-qm", "baseline"]);

@@ -526,7 +526,7 @@ impl std::fmt::Display for LaunchError {
             LaunchError::UnsupportedProtocolVersion { negotiated } => write!(
                 f,
                 "agent negotiated unsupported ACP protocol version {negotiated}\n\
-                 hint: update mjolnir or choose an agent that supports ACP {}",
+                 hint: update belgr or choose an agent that supports ACP {}",
                 ProtocolVersion::LATEST
             ),
             LaunchError::UnsupportedCapability { capability } => write!(
@@ -1324,7 +1324,7 @@ pub async fn run(
     // Reap the entire agent subtree, not just the immediate child.
     // Wrappers like `uvx brokk acp` fork a Python interpreter as a
     // grandchild; killing only the wrapper PID orphans the grandchild
-    // and leaks the actual agent across mjolnir sessions.
+    // and leaks the actual agent across belgr sessions.
     let teardown = kill_agent_tree(&mut child, agent_pid).await;
     stderr_capture.finish().await;
     // Generic catch-all: anything that escaped the launch-phase classifier
@@ -1632,7 +1632,7 @@ fn is_executable_file(path: &Path) -> bool {
 fn embedded_uv_root() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("mj")
+        .join("belgr")
         .join("runners")
         .join("uv")
 }
@@ -1783,7 +1783,7 @@ fn termux_nodejs_install_command() -> Command {
 fn embedded_node_root() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("mj")
+        .join("belgr")
         .join("runners")
         .join("node")
         .join("24")
@@ -1942,7 +1942,7 @@ fn node24_archive_suffix() -> Option<&'static str> {
 }
 
 pub fn client_implementation() -> Implementation {
-    Implementation::new("brokk-mjolnir", env!("CARGO_PKG_VERSION")).title("Mjolnir")
+    Implementation::new("belgr", env!("CARGO_PKG_VERSION")).title("Belgr")
 }
 
 fn command_failure_summary(output: &std::process::Output) -> String {
@@ -2648,7 +2648,7 @@ async fn drive_session(
     // tools before the first prompt. Some ACP agents accept
     // lifecycle `mcpServers` during `session/new` but intentionally construct
     // their tool registry lazily when handling `session/prompt`. Waiting here
-    // deadlocks those agents: Mjolnir waits for `tools/list` while the agent
+    // deadlocks those agents: Belgr waits for `tools/list` while the agent
     // waits for the first prompt before it lists tools.
     //
     // The subagent MCP server stays advertised for the session, and the
@@ -8517,7 +8517,7 @@ mod tests {
                         Some(&serde_json::Value::Bool(true))
                     );
                     let client_info = req.client_info.expect("clientInfo");
-                    assert_eq!(client_info.name, "brokk-mjolnir");
+                    assert_eq!(client_info.name, "belgr");
                     assert_eq!(client_info.version, env!("CARGO_PKG_VERSION"));
                     responder.respond(
                         InitializeResponse::new(agent_client_protocol::schema::ProtocolVersion::V1)
@@ -10536,8 +10536,8 @@ mod tests {
 
     fn init_git_repo(root: &Path) {
         run_git(root, &["init"]);
-        run_git(root, &["config", "user.email", "mjolnir@example.test"]);
-        run_git(root, &["config", "user.name", "Mjolnir Tests"]);
+        run_git(root, &["config", "user.email", "belgr@example.test"]);
+        run_git(root, &["config", "user.name", "Belgr Tests"]);
     }
 
     async fn run_mock_agent_that_writes_file(
@@ -11299,7 +11299,7 @@ mod tests {
 
     #[tokio::test]
     async fn steer_answered_started_new_turn_is_cancelled_and_resent_owned() {
-        // codex-acp's idle-race answer starts a detached turn mjolnir has no
+        // codex-acp's idle-race answer starts a detached turn belgr has no
         // prompt request for and no way to await. The runtime reclaims the
         // message: cancel the detached turn, then deliver the message as an
         // owned prompt with a real completion path.
@@ -13316,7 +13316,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn run_reports_spawn_failure_as_fatal() {
         let cfg = AcpRuntimeConfig {
-            command: PathBuf::from("definitely-not-a-real-mjolnir-command"),
+            command: PathBuf::from("definitely-not-a-real-belgr-command"),
             args: Vec::new(),
             cwd: std::env::temp_dir(),
             additional_directories: Vec::new(),
@@ -13628,7 +13628,7 @@ mod tests {
         }
     }
 
-    /// Build a subprocess command that stays alive until mjolnir terminates
+    /// Build a subprocess command that stays alive until belgr terminates
     /// it. This avoids wall-clock races in tests of requested shutdown.
     fn hang_command() -> (PathBuf, Vec<String>) {
         if cfg!(windows) {
@@ -13644,7 +13644,7 @@ mod tests {
         }
     }
 
-    /// Agent exits *immediately*, before mjolnir's `initialize` send can
+    /// Agent exits *immediately*, before belgr's `initialize` send can
     /// complete. With `biased; drive_result` first, the drive future is
     /// polled, gets a broken-pipe error, and returns Err quickly. The
     /// wait branch never fires; instead the post-drive `try_wait()`
@@ -13960,7 +13960,7 @@ mod tests {
         let mcp_servers = vec![McpServer::Stdio(
             agent_client_protocol::schema::v1::McpServerStdio::new(
                 "workspace-tools",
-                "/opt/mjolnir/workspace-tools",
+                "/opt/belgr/workspace-tools",
             ),
         )];
 
@@ -13972,7 +13972,7 @@ mod tests {
 
             assert!(text.contains("failed to launch a child process"), "{text}");
             assert!(
-                text.contains("workspace-tools (/opt/mjolnir/workspace-tools)"),
+                text.contains("workspace-tools (/opt/belgr/workspace-tools)"),
                 "{text}"
             );
             assert!(

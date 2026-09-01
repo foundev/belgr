@@ -27,7 +27,7 @@ pub fn default_path() -> PathBuf {
     dirs::state_dir()
         .or_else(dirs::config_dir)
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("mj")
+        .join("belgr")
         .join("session-provenance.json")
 }
 

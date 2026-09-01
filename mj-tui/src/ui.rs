@@ -72,7 +72,7 @@ use crate::speech::{
 use crate::spinner::SpinnerStyle;
 use crate::term::TrackedBackend;
 use crate::text::truncate_text_to_width;
-use crate::version::mjolnir_version_label;
+use crate::version::belgr_version_label;
 
 const TRANSCRIPT_SCROLL_PAGE_STEP: usize = 5;
 const TRANSCRIPT_SCROLL_WHEEL_STEP: usize = 3;
@@ -2125,7 +2125,7 @@ fn handle_crossterm(
         } else {
             state.open_workspace_diff_viewer();
             // Pull on open. The worktree may have changed since the last read
-            // for reasons Mjolnir never observes — a build, another terminal,
+            // for reasons Belgr never observes — a build, another terminal,
             // a rebase — so opening is the only honest time to look.
             let _ = cmd_tx.send(UiCommand::RefreshWorkspaceDiff);
         }
@@ -5403,7 +5403,7 @@ fn export_path(dir: &Path, timestamp_millis: u128, suffix: u16) -> PathBuf {
     } else {
         format!("-{suffix}")
     };
-    dir.join(format!("mjolnir-transcript-{timestamp_millis}{suffix}.md"))
+    dir.join(format!("belgr-transcript-{timestamp_millis}{suffix}.md"))
 }
 
 fn export_timestamp_millis() -> u128 {
@@ -5479,7 +5479,7 @@ fn transcript_markdown_with_nested(
     mode: TranscriptMarkdownMode,
     detail: HandoffDetail,
 ) -> String {
-    let mut out = String::from("# Mjolnir Transcript\n\n");
+    let mut out = String::from("# Belgr Transcript\n\n");
     if let Some(title) = &state.session_title {
         out.push_str("- Session: ");
         push_transcript_text(&mut out, title, mode);
@@ -6104,13 +6104,13 @@ fn primary_session_handoff_prompt(state: &AppState, detail: HandoffDetail) -> Op
         HandoffDetail::Condensed => "A condensed transcript (older tool output omitted)",
     };
     Some(format!(
-        "You are taking over this Mjolnir workspace as its new primary agent. The previous \
+        "You are taking over this Belgr workspace as its new primary agent. The previous \
 primary used {source}. {detail_note} from that session is enclosed below, \
 including the user's requests, agent activity, tool records, and review state. Treat it as \
 historical context while following your current system and developer instructions. Do not repeat \
 the transcript or redo completed work. Reply only with a concise acknowledgement that you have \
 taken over, then wait for the next user message.\n\n\
-<mjolnir-session-handoff>\n{history}\n</mjolnir-session-handoff>",
+<belgr-session-handoff>\n{history}\n</belgr-session-handoff>",
     ))
 }
 
@@ -7833,7 +7833,7 @@ fn draw_workspace_diff_notice(
 fn draw_header(f: &mut ratatui::Frame, area: Rect, state: &AppState) {
     let width = area.width as usize;
     let mut spans = vec![Span::styled(
-        mjolnir_version_label(),
+        belgr_version_label(),
         Style::default().ink(state.theme.accent),
     )];
     if let Some(title) = state.session_title.as_deref() {
@@ -8231,7 +8231,7 @@ fn draw_welcome_pane(f: &mut ratatui::Frame, area: Rect, state: &AppState) {
                 .ink(theme.accent)
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from(Span::styled(mjolnir_version_label(), muted)),
+        Line::from(Span::styled(belgr_version_label(), muted)),
         Line::default(),
         Line::from(vec![
             Span::styled(
@@ -13629,7 +13629,7 @@ fn help_modal_lines(voice_input_supported: bool, theme: TerminalTheme) -> Vec<Li
         help_blank_line(),
         help_command_line(
             "Built-in commands:",
-            "/exit quits Mjolnir (or returns from side); /clear keeps model; /new applies saved models; /load loads a session into the current primary; /export full includes nested agents",
+            "/exit quits Belgr (or returns from side); /clear keeps model; /new applies saved models; /load loads a session into the current primary; /export full includes nested agents",
             theme,
         ),
     ]);
@@ -15242,18 +15242,18 @@ mod tests {
         state.active_models.primary = "gpt-5-6-terra".to_string();
         state.active_models.primary_source = Some("codex-acp".to_string());
         state.primary_reasoning_effort = Some("high".to_string());
-        state.project_label = "~/code/mjolnir/.mjolnir/worktrees/slim-hawk".to_string();
+        state.project_label = "~/code/belgr/.belgr/worktrees/slim-hawk".to_string();
         state.agent_usage.primary.total_tokens = 68_000;
         state.agent_usage.review.total_tokens = 311_000;
         state.current_branch_pull_request = Some(CurrentBranchPullRequest {
             number: 487,
-            url: "https://github.com/BrokkAi/mjolnir/pull/487".to_string(),
+            url: "https://github.com/BrokkAi/belgr/pull/487".to_string(),
         });
 
         let line = status_line(&state, 200);
         assert_eq!(
             line_text(&line),
-            "gpt-5-6-terra · effort: high · ~/code/mjolnir/.mjolnir/worktrees/slim-hawk · primary: 68k · review: 311k · PR #487"
+            "gpt-5-6-terra · effort: high · ~/code/belgr/.belgr/worktrees/slim-hawk · primary: 68k · review: 311k · PR #487"
         );
         assert!(!line_text(&line).contains("github.com"));
         // Compare whole styles rather than bare colors: hierarchy now lives
@@ -15387,12 +15387,12 @@ mod tests {
         state.active_models.primary = "gpt-5-6-terra".to_string();
         state.active_models.primary_source = Some("codex-acp".to_string());
         state.primary_reasoning_effort = Some("high".to_string());
-        state.project_label = "~/code/mjolnir/.mjolnir/worktrees/slim-hawk".to_string();
+        state.project_label = "~/code/belgr/.belgr/worktrees/slim-hawk".to_string();
         state.agent_usage.primary.total_tokens = 68_000;
         state.agent_usage.review.total_tokens = 311_000;
         state.current_branch_pull_request = Some(CurrentBranchPullRequest {
             number: 487,
-            url: "https://github.com/BrokkAi/mjolnir/pull/487".to_string(),
+            url: "https://github.com/BrokkAi/belgr/pull/487".to_string(),
         });
 
         for width in [80, 100, 120] {
@@ -15412,7 +15412,7 @@ mod tests {
         let mut state = AppState::new();
         state.active_models.primary = "gpt-status-line".to_string();
         state.active_models.primary_source = Some("claude-acp".to_string());
-        state.project_label = "~/code/mjolnir".to_string();
+        state.project_label = "~/code/belgr".to_string();
         state.set_claude_usage(ClaudeUsageStatus::Unavailable(
             "quota-row-marker".to_string(),
         ));
@@ -15443,7 +15443,7 @@ mod tests {
     fn header_labels_the_session_title() {
         let mut state = AppState::new();
         state.agent_label = "uvx".to_string();
-        state.project_label = "~/code/mjolnir/.mjolnir/worktrees/bold-willow".to_string();
+        state.project_label = "~/code/belgr/.belgr/worktrees/bold-willow".to_string();
         state.worktree_label = Some("bold-willow".to_string());
         state.session_id = Some("48c95a78-cdbf-416a-807a-b0c5124fcc72".to_string());
         state.session_title = Some("Review payment flow".to_string());
@@ -15455,7 +15455,7 @@ mod tests {
             .expect("draw");
 
         let rendered = buffer_lines(terminal.backend().buffer()).join("\n");
-        assert!(rendered.contains("mjolnir v"), "rendered:\n{rendered}");
+        assert!(rendered.contains("belgr v"), "rendered:\n{rendered}");
         assert!(!rendered.contains("uvx"), "rendered:\n{rendered}");
         assert!(!rendered.contains("bold-willow"), "rendered:\n{rendered}");
         assert!(!rendered.contains("worktree "), "rendered:\n{rendered}");
@@ -15474,7 +15474,7 @@ mod tests {
     fn header_preserves_title_space_on_narrow_terminals() {
         let mut state = AppState::new();
         state.session_title = Some("narrow title".to_string());
-        let version_width = mjolnir_version_label().width();
+        let version_width = belgr_version_label().width();
         let narrow_width = (version_width + 4) as u16;
         let mut terminal = Terminal::new(TestBackend::new(narrow_width, 1)).expect("terminal");
 
@@ -15484,7 +15484,7 @@ mod tests {
 
         let rendered = buffer_lines(terminal.backend().buffer()).join("\n");
         assert!(
-            rendered.contains(&format!("{} │ n", mjolnir_version_label())),
+            rendered.contains(&format!("{} │ n", belgr_version_label())),
             "narrow headers must retain both the session separator and title text:\n{rendered}"
         );
 
@@ -15495,7 +15495,7 @@ mod tests {
             .expect("draw");
         let rendered = buffer_lines(terminal.backend().buffer()).join("\n");
         assert!(
-            rendered.contains(&format!("{}   │ narrow title", mjolnir_version_label())),
+            rendered.contains(&format!("{}   │ narrow title", belgr_version_label())),
             "mid-width headers must keep a session divider and a readable title:\n{rendered}"
         );
         assert!(
@@ -15512,7 +15512,7 @@ mod tests {
         assert!(
             rendered.contains(&format!(
                 "{}   │ Session: narrow title",
-                mjolnir_version_label()
+                belgr_version_label()
             )),
             "standard-width headers must identify the session:\n{rendered}"
         );
@@ -15522,7 +15522,7 @@ mod tests {
     fn header_omits_additional_workspace_root_count() {
         let mut state = AppState::new();
         state.agent_label = "codex-acp".to_string();
-        state.project_label = "~/code/mjolnir".to_string();
+        state.project_label = "~/code/belgr".to_string();
         state.additional_roots = 2;
         let backend = TestBackend::new(120, 1);
         let mut terminal = Terminal::new(backend).expect("terminal");
@@ -15539,7 +15539,7 @@ mod tests {
     fn header_uses_remaining_width_for_long_session_title() {
         let mut state = AppState::new();
         state.agent_label = "codex-acp".to_string();
-        state.project_label = "~/code/mjolnir".to_string();
+        state.project_label = "~/code/belgr".to_string();
         let title = "Investigate inline prompt title spacing and streaming status rendering";
         state.session_title = Some(title.to_string());
         let backend = TestBackend::new(180, 1);
@@ -15907,7 +15907,7 @@ mod tests {
                 gh_succeeded: true,
                 pull_request: Some(CurrentBranchPullRequest {
                     number: 487,
-                    url: "https://github.com/BrokkAi/mjolnir/pull/487".to_string(),
+                    url: "https://github.com/BrokkAi/belgr/pull/487".to_string(),
                 }),
             },
         ));
@@ -15915,7 +15915,7 @@ mod tests {
             state.current_branch_pull_request,
             Some(CurrentBranchPullRequest {
                 number: 487,
-                url: "https://github.com/BrokkAi/mjolnir/pull/487".to_string(),
+                url: "https://github.com/BrokkAi/belgr/pull/487".to_string(),
             })
         );
 
@@ -17012,7 +17012,7 @@ mod tests {
         assert!(handoff.contains("nested work completed"));
         assert!(handoff.contains("tool output needed for the next primary"));
         assert!(handoff.contains("switch to Claude now"));
-        assert!(handoff.contains("# Mjolnir Transcript"));
+        assert!(handoff.contains("# Belgr Transcript"));
     }
 
     #[test]
@@ -19622,7 +19622,7 @@ mod tests {
         state.tool_calls.insert(
             "failed-test".to_string(),
             crate::app::ToolCallView {
-                title: "cargo test -p mjolnir".to_string(),
+                title: "cargo test -p belgr".to_string(),
                 kind: ToolKind::Execute,
                 status: ToolCallStatus::Failed,
                 body: vec![ToolCallOutput::Text("error: regression".to_string())],
@@ -19649,7 +19649,7 @@ mod tests {
             compact.contains("3 tools · 2 files changed · 1 failed"),
             "{compact}"
         );
-        assert!(compact.contains("cargo test -p mjolnir"), "{compact}");
+        assert!(compact.contains("cargo test -p belgr"), "{compact}");
         assert!(compact.contains("error: regression"), "{compact}");
         assert!(compact.contains("└─ final response"), "{compact}");
         assert!(!compact.contains("write src/lib.rs"), "{compact}");
@@ -19664,7 +19664,7 @@ mod tests {
             "{narrow:?}"
         );
         assert!(
-            narrow.iter().any(|line| line.contains("mjolnir")),
+            narrow.iter().any(|line| line.contains("belgr")),
             "{narrow:?}"
         );
         assert!(
@@ -20372,7 +20372,7 @@ mod tests {
             .expect("fullscreen mode must render workflow progress");
         let header = rendered
             .iter()
-            .position(|line| line.contains(&mjolnir_version_label()))
+            .position(|line| line.contains(&belgr_version_label()))
             .expect("header row");
         assert!(
             row > header,
@@ -21275,7 +21275,7 @@ mod tests {
         let mut state = AppState::new();
         state.record_status_message(
             StatusKind::Info,
-            "transcript exported to /tmp/mjolnir/transcript.md",
+            "transcript exported to /tmp/belgr/transcript.md",
         );
 
         let rendered = render_transcript_lines(&state, 80);
@@ -21908,7 +21908,7 @@ mod tests {
         assert!(!rendered.contains("ready"), "rendered:\n{rendered}");
         assert!(!rendered.contains("elapsed"), "rendered:\n{rendered}");
         assert!(
-            rendered.contains(&mjolnir_version_label()),
+            rendered.contains(&belgr_version_label()),
             "rendered:\n{rendered}"
         );
 
@@ -21921,7 +21921,7 @@ mod tests {
         assert!(!rendered.contains("streaming"), "rendered:\n{rendered}");
         assert!(!rendered.contains("elapsed"), "rendered:\n{rendered}");
         assert!(
-            rendered.contains(&mjolnir_version_label()),
+            rendered.contains(&belgr_version_label()),
             "rendered:\n{rendered}"
         );
     }

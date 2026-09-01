@@ -144,7 +144,7 @@ fn sigterm_restores_real_pty_terminal() {
         "make PTY master nonblocking"
     );
 
-    let mut command = Command::new(env!("CARGO_BIN_EXE_mj"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_belgr"));
     command
         .env("MJ_TERMINATION_PTY_INTEGRATION", "1")
         .stdin(Stdio::from(duplicate(slave.as_raw_fd())))
@@ -245,7 +245,7 @@ fn repeated_sigterm_forces_real_pty_child_exit() {
         "make PTY master nonblocking"
     );
 
-    let mut command = Command::new(env!("CARGO_BIN_EXE_mj"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_belgr"));
     command
         .env("MJ_TERMINATION_PTY_INTEGRATION", "force")
         .stdin(Stdio::from(duplicate(slave.as_raw_fd())))

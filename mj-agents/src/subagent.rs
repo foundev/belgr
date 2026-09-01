@@ -106,7 +106,7 @@ A report is the subagent's own account of its work; its claims, including any te
 
 resume continues a finished subagent's retained session with a new prompt, preserving its context; use it for targeted follow-up on work that subagent already did. subagent_cancel stops a running subagent or releases a finished one and returns its full report either way; use it to abandon or conclude work, not to collect results. It never reverts edits.
 
-Subagents use the model and ACP routing configured by Mjolnir.
+Subagents use the model and ACP routing configured by Belgr.
 
 Prefer your own tools for small local edits, known-path lookups, and quick single-step questions; delegation is worth it when the work is clearly larger than writing the brief and reviewing the result. Prefer delegating investigation AND implementation as one task; do not read deeply yourself just to write a brief. When the affected files are genuinely unknown, delegate the discovery too — a read-focused subagent can map the ground and report the targets. Apply this policy while handling each user request; do not acknowledge or summarize it.
 </mj-subagent-policy>"#;
@@ -452,7 +452,7 @@ impl Config {
 
     /// Attach fixed MCP servers to runs launched from this configuration.
     ///
-    /// Nested runs never receive Mjolnir's generic subagent server; only these
+    /// Nested runs never receive Belgr's generic subagent server; only these
     /// explicitly supplied servers are advertised.
     pub fn with_mcp_servers(mut self, servers: Vec<McpServer>) -> Self {
         self.mcp_servers = servers;
@@ -601,7 +601,7 @@ pub struct RunContext {
     pub access_mode: RuntimeAccessMode,
 }
 
-/// One fixed job launched by a Mjolnir-owned coordinator.
+/// One fixed job launched by a Belgr-owned coordinator.
 ///
 /// This is deliberately role-neutral: a review supervisor and its reviewers
 /// are peers at the runner layer even though their orchestration roles differ.
@@ -754,7 +754,7 @@ impl McpHandler {
 
     #[tool(
         name = "create_subagent",
-        description = "LAUNCH A BACKGROUND SUBAGENT. Starts one subagent on a fresh ACP process and session using Mjolnir's configured subagent model and RETURNS IMMEDIATELY with its subagentId; it does not carry the result. Reports are delivered only between your turns, so ending your turn while subagents run is how you WAIT: you will be woken the moment a report is ready, with that subagent's full <subagent_result> block plus progress on everything still running, and woken again as the rest finish. Never poll and never call another tool to check on a running subagent. The subagent has zero memory of this conversation, so `prompt` must be a complete standalone brief: the task, the context and decisions needed to start immediately, the constraints, and the report you expect. Several subagents run concurrently and ALL of them can write to the workspace, so give each one non-overlapping work and do not edit files a running subagent owns. Optional `label` is a short display name. Optional `cwd` must be an absolute directory inside the authorized workspace roots. Optional `resume` continues a finished subagent's retained session with this prompt instead of starting a fresh one. Prefer your own tools for small edits and quick lookups."
+        description = "LAUNCH A BACKGROUND SUBAGENT. Starts one subagent on a fresh ACP process and session using Belgr's configured subagent model and RETURNS IMMEDIATELY with its subagentId; it does not carry the result. Reports are delivered only between your turns, so ending your turn while subagents run is how you WAIT: you will be woken the moment a report is ready, with that subagent's full <subagent_result> block plus progress on everything still running, and woken again as the rest finish. Never poll and never call another tool to check on a running subagent. The subagent has zero memory of this conversation, so `prompt` must be a complete standalone brief: the task, the context and decisions needed to start immediately, the constraints, and the report you expect. Several subagents run concurrently and ALL of them can write to the workspace, so give each one non-overlapping work and do not edit files a running subagent owns. Optional `label` is a short display name. Optional `cwd` must be an absolute directory inside the authorized workspace roots. Optional `resume` continues a finished subagent's retained session with this prompt instead of starting a fresh one. Prefer your own tools for small edits and quick lookups."
     )]
     async fn create_subagent(
         &self,
@@ -814,7 +814,7 @@ impl McpHandler {
 
     #[tool(
         name = "request_discrete_review",
-        description = "START THE CONFIGURED DISCRETE REVIEW NOW. Call this immediately after code changes and local validation are complete, before any commit, push, pull request, merge, tag, publication, or release action. It captures the current uncommitted changes as an immutable Git snapshot, starts Mjolnir's configured review asynchronously, and RETURNS IMMEDIATELY after dispatch; the verdict is injected into the primary session later. While review runs, do only read-only work or end your turn. Do not mutate or publish until a complete clean verdict arrives. A clean verdict remains valid only while the reviewed code is unchanged; after material fixes or any later code change, validate and call this tool again. Takes no arguments."
+        description = "START THE CONFIGURED DISCRETE REVIEW NOW. Call this immediately after code changes and local validation are complete, before any commit, push, pull request, merge, tag, publication, or release action. It captures the current uncommitted changes as an immutable Git snapshot, starts Belgr's configured review asynchronously, and RETURNS IMMEDIATELY after dispatch; the verdict is injected into the primary session later. While review runs, do only read-only work or end your turn. Do not mutate or publish until a complete clean verdict arrives. A clean verdict remains valid only while the reviewed code is unchanged; after material fixes or any later code change, validate and call this tool again. Takes no arguments."
     )]
     async fn request_discrete_review(
         &self,
@@ -1705,7 +1705,7 @@ impl Controller {
     }
 }
 
-/// Programmatic entry point for Mjolnir-owned agent coordinators.
+/// Programmatic entry point for Belgr-owned agent coordinators.
 ///
 /// It deliberately reuses the same controller, worker, report, cancellation,
 /// and UI-event path as the public MCP tools without exposing those tools to
@@ -2207,7 +2207,7 @@ fn continuation_prompt(guidance: &str) -> String {
     )
 }
 
-/// Shared admission path for public MCP and Mjolnir-owned programmatic runs.
+/// Shared admission path for public MCP and Belgr-owned programmatic runs.
 ///
 /// In particular, report accounting opens before the worker can finish, and
 /// the registry entry is installed before the task is spawned.
@@ -2770,7 +2770,7 @@ async fn run(
                 session_id = subagent_id,
                 role = workflow_role.as_str(),
                 task = %task,
-                "Mjolnir launched an internal review session"
+                "Belgr launched an internal review session"
             );
         } else {
             tracing::info!(
@@ -3856,8 +3856,8 @@ mod tests {
     fn init_repo(root: &Path) {
         for args in [
             ["init", "-q"].as_slice(),
-            ["config", "user.email", "mjolnir@example.test"].as_slice(),
-            ["config", "user.name", "Mjolnir Tests"].as_slice(),
+            ["config", "user.email", "belgr@example.test"].as_slice(),
+            ["config", "user.name", "Belgr Tests"].as_slice(),
             ["commit", "--allow-empty", "-qm", "baseline"].as_slice(),
         ] {
             let output = std::process::Command::new("git")
@@ -5127,7 +5127,7 @@ mod tests {
         let snapshot = capture_workspace_snapshot(&delegated).await;
 
         std::fs::write(external.join("subagent-change.txt"), "changed\n").expect("change");
-        std::fs::write(runtime_log, "Mjolnir runtime output\n").expect("runtime log");
+        std::fs::write(runtime_log, "Belgr runtime output\n").expect("runtime log");
 
         let delta = snapshot.delta().await;
         assert!(delta.changed());

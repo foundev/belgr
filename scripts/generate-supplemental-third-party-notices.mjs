@@ -256,7 +256,7 @@ async function embeddedFontsNotice() {
 
 function render(sections) {
   const lines = [
-    "MJOLNIR SUPPLEMENTAL THIRD-PARTY NOTICES",
+    "BELGR SUPPLEMENTAL THIRD-PARTY NOTICES",
     "",
     "This file supplements THIRD_PARTY_LICENSES.html. Cargo package metadata",
     "does not enumerate standalone NOTICE files, embedded web fonts, or every",
@@ -264,7 +264,7 @@ function render(sections) {
     "",
     "The sections below are generated from Cargo.lock, exact installed crate",
     "sources, and a reviewed inventory of the non-Cargo assets shipped by",
-    "official Mjolnir archives.",
+    "official Belgr archives.",
   ];
 
   for (const section of sections) {

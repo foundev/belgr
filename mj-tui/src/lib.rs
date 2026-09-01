@@ -1,4 +1,4 @@
-//! Ratatui terminal frontend and interactive application state for Mjolnir.
+//! Ratatui terminal frontend and interactive application state for Belgr.
 
 pub mod app;
 pub mod auth;
@@ -65,10 +65,10 @@ pub mod workflow {
 }
 
 pub mod version {
-    pub const MJOLNIR_VERSION: &str = env!("CARGO_PKG_VERSION");
+    pub const BELGR_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    pub fn mjolnir_version_label() -> String {
-        format!("mjolnir v{MJOLNIR_VERSION}")
+    pub fn belgr_version_label() -> String {
+        format!("belgr v{BELGR_VERSION}")
     }
 }
 

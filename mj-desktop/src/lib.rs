@@ -220,11 +220,11 @@ pub fn run(
     });
     let window = apply_desktop_window_size(
         WindowBuilder::new()
-            .with_title("Mjolnir")
+            .with_title("Belgr")
             .with_window_icon(Some(application_icon()?)),
     )
     .build(&event_loop)
-    .context("create Mjolnir desktop window")?;
+    .context("create Belgr desktop window")?;
 
     let popup_policy = policy.clone();
     let builder = WebViewBuilder::new()
@@ -251,12 +251,12 @@ pub fn run(
         use wry::WebViewBuilderExtUnix;
         builder
             .build_gtk(window.gtk_window())
-            .context("create Mjolnir WebKitGTK view")?
+            .context("create Belgr WebKitGTK view")?
     };
     #[cfg(not(target_os = "linux"))]
     let webview = builder
         .build(&window)
-        .context("create Mjolnir system WebView")?;
+        .context("create Belgr system WebView")?;
 
     #[cfg(target_os = "macos")]
     let _certificate_pin = install_platform_certificate_pin(
@@ -284,7 +284,7 @@ pub fn run(
             } => *control_flow = ControlFlow::Exit,
             Event::UserEvent(ShellEvent::CookieInstalled) => {
                 if let Err(error) = webview.load_url(options.origin.as_str()) {
-                    result = Err(anyhow!(error).context("load Mjolnir desktop viewer"));
+                    result = Err(anyhow!(error).context("load Belgr desktop viewer"));
                     *control_flow = ControlFlow::Exit;
                 }
             }
@@ -309,7 +309,7 @@ fn application_icon() -> Result<Icon> {
     )?
     .into_rgba8();
     let (width, height) = image.dimensions();
-    Icon::from_rgba(image.into_raw(), width, height).context("decode Mjolnir application icon")
+    Icon::from_rgba(image.into_raw(), width, height).context("decode Belgr application icon")
 }
 
 #[cfg(not(target_os = "android"))]

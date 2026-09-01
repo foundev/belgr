@@ -429,6 +429,234 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "belgr"
+version = "1.16.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "async-trait",
+ "axum-server",
+ "base64",
+ "belgr-mj-agents",
+ "belgr-mj-anvil",
+ "belgr-mj-core",
+ "belgr-mj-desktop",
+ "belgr-mj-remote",
+ "belgr-mj-tui",
+ "chrono",
+ "clap",
+ "dirs",
+ "flate2",
+ "futures",
+ "hmac",
+ "http-body-util",
+ "iana-time-zone",
+ "libc",
+ "rcgen",
+ "reqwest",
+ "rusqlite",
+ "rustls",
+ "rustls-pemfile",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "shell-words",
+ "signal-hook",
+ "similar",
+ "tar",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "zip",
+]
+
+[[package]]
+name = "belgr-mj-agents"
+version = "1.16.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "async-trait",
+ "belgr-mj-core",
+ "futures",
+ "libc",
+ "rmcp",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "belgr-mj-anvil"
+version = "1.16.0"
+dependencies = [
+ "belgr-mj-core",
+]
+
+[[package]]
+name = "belgr-mj-core"
+version = "1.16.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "async-trait",
+ "base64",
+ "chrono",
+ "dirs",
+ "flate2",
+ "futures",
+ "getrandom 0.3.4",
+ "iana-time-zone",
+ "libc",
+ "reqwest",
+ "rmcp",
+ "rusqlite",
+ "schemars 1.2.1",
+ "semver",
+ "serde",
+ "serde_json",
+ "shell-words",
+ "signal-hook",
+ "similar",
+ "tar",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "unicode-width",
+ "url",
+ "zip",
+]
+
+[[package]]
+name = "belgr-mj-desktop"
+version = "1.16.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "block2",
+ "gio",
+ "image",
+ "objc2",
+ "objc2-foundation",
+ "objc2-web-kit",
+ "rcgen",
+ "rustls",
+ "soup3",
+ "tao",
+ "tracing",
+ "url",
+ "webbrowser",
+ "webkit2gtk",
+ "webview2-com",
+ "windows-core 0.61.2",
+ "wry",
+]
+
+[[package]]
+name = "belgr-mj-remote"
+version = "1.16.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "axum-server",
+ "base64",
+ "belgr-mj-core",
+ "chrono",
+ "crossterm",
+ "dirs",
+ "getrandom 0.3.4",
+ "hmac",
+ "http-body-util",
+ "libc",
+ "qrcode",
+ "rcgen",
+ "reqwest",
+ "rusqlite",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "sha2",
+ "shell-words",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "belgr-mj-tui"
+version = "1.16.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "arboard",
+ "async-trait",
+ "base64",
+ "belgr-mj-agents",
+ "belgr-mj-core",
+ "chrono",
+ "crossterm",
+ "dirs",
+ "flate2",
+ "futures",
+ "iana-time-zone",
+ "image",
+ "libc",
+ "qrcode",
+ "ratatui",
+ "reqwest",
+ "semver",
+ "serde",
+ "serde_json",
+ "shell-words",
+ "signal-hook",
+ "similar",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "unicode-width",
+ "url",
+]
+
+[[package]]
+name = "belgr-mj-voice-worker"
+version = "1.16.0"
+dependencies = [
+ "anyhow",
+ "bzip2 0.6.1",
+ "cpal",
+ "dirs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sherpa-onnx",
+ "tar",
+ "tempfile",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -499,234 +727,6 @@ dependencies = [
  "futures-io",
  "futures-lite",
  "piper",
-]
-
-[[package]]
-name = "brokk-mj-agents"
-version = "1.16.0"
-dependencies = [
- "agent-client-protocol",
- "anyhow",
- "async-trait",
- "brokk-mj-core",
- "futures",
- "libc",
- "rmcp",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "brokk-mj-anvil"
-version = "1.16.0"
-dependencies = [
- "brokk-mj-core",
-]
-
-[[package]]
-name = "brokk-mj-core"
-version = "1.16.0"
-dependencies = [
- "agent-client-protocol",
- "anyhow",
- "async-trait",
- "base64",
- "chrono",
- "dirs",
- "flate2",
- "futures",
- "getrandom 0.3.4",
- "iana-time-zone",
- "libc",
- "reqwest",
- "rmcp",
- "rusqlite",
- "schemars 1.2.1",
- "semver",
- "serde",
- "serde_json",
- "shell-words",
- "signal-hook",
- "similar",
- "tar",
- "tempfile",
- "tokio",
- "tokio-util",
- "toml",
- "tracing",
- "unicode-width",
- "url",
- "zip",
-]
-
-[[package]]
-name = "brokk-mj-desktop"
-version = "1.16.0"
-dependencies = [
- "anyhow",
- "base64",
- "block2",
- "gio",
- "image",
- "objc2",
- "objc2-foundation",
- "objc2-web-kit",
- "rcgen",
- "rustls",
- "soup3",
- "tao",
- "tracing",
- "url",
- "webbrowser",
- "webkit2gtk",
- "webview2-com",
- "windows-core 0.61.2",
- "wry",
-]
-
-[[package]]
-name = "brokk-mj-remote"
-version = "1.16.0"
-dependencies = [
- "agent-client-protocol",
- "anyhow",
- "async-trait",
- "axum",
- "axum-server",
- "base64",
- "brokk-mj-core",
- "chrono",
- "crossterm",
- "dirs",
- "getrandom 0.3.4",
- "hmac",
- "http-body-util",
- "libc",
- "qrcode",
- "rcgen",
- "reqwest",
- "rusqlite",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "sha2",
- "shell-words",
- "tempfile",
- "time",
- "tokio",
- "tokio-util",
- "tower",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "brokk-mj-tui"
-version = "1.16.0"
-dependencies = [
- "agent-client-protocol",
- "anyhow",
- "arboard",
- "async-trait",
- "base64",
- "brokk-mj-agents",
- "brokk-mj-core",
- "chrono",
- "crossterm",
- "dirs",
- "flate2",
- "futures",
- "iana-time-zone",
- "image",
- "libc",
- "qrcode",
- "ratatui",
- "reqwest",
- "semver",
- "serde",
- "serde_json",
- "shell-words",
- "signal-hook",
- "similar",
- "tempfile",
- "time",
- "tokio",
- "tokio-util",
- "toml",
- "tracing",
- "unicode-width",
- "url",
-]
-
-[[package]]
-name = "brokk-mj-voice-worker"
-version = "1.16.0"
-dependencies = [
- "anyhow",
- "bzip2 0.6.1",
- "cpal",
- "dirs",
- "reqwest",
- "serde",
- "serde_json",
- "sherpa-onnx",
- "tar",
- "tempfile",
-]
-
-[[package]]
-name = "brokk-mjolnir"
-version = "1.16.0"
-dependencies = [
- "agent-client-protocol",
- "anyhow",
- "async-trait",
- "axum-server",
- "base64",
- "brokk-mj-agents",
- "brokk-mj-anvil",
- "brokk-mj-core",
- "brokk-mj-desktop",
- "brokk-mj-remote",
- "brokk-mj-tui",
- "chrono",
- "clap",
- "dirs",
- "flate2",
- "futures",
- "hmac",
- "http-body-util",
- "iana-time-zone",
- "libc",
- "rcgen",
- "reqwest",
- "rusqlite",
- "rustls",
- "rustls-pemfile",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "shell-words",
- "signal-hook",
- "similar",
- "tar",
- "tempfile",
- "time",
- "tokio",
- "tokio-util",
- "toml",
- "tower",
- "tracing",
- "tracing-subscriber",
- "url",
- "zip",
 ]
 
 [[package]]

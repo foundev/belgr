@@ -8,12 +8,12 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = path.join(repositoryRoot, "Cargo.toml");
 const internalPackages = [
-  "brokk-mj-core",
-  "brokk-mj-agents",
-  "brokk-mj-anvil",
-  "brokk-mj-tui",
-  "brokk-mj-remote",
-  "brokk-mj-desktop",
+  "belgr-mj-core",
+  "belgr-mj-agents",
+  "belgr-mj-anvil",
+  "belgr-mj-tui",
+  "belgr-mj-remote",
+  "belgr-mj-desktop",
 ];
 
 function expectedManifest(manifest) {

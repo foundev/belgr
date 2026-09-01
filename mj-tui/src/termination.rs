@@ -21,10 +21,10 @@ enum SignalAction {
 
 static SUPPRESSED_INTERRUPTS: AtomicUsize = AtomicUsize::new(0);
 
-/// Keeps a foreground child process's Ctrl-C from also terminating Mjolnir.
+/// Keeps a foreground child process's Ctrl-C from also terminating Belgr.
 ///
 /// The child remains in the terminal's foreground process group and receives
-/// the signal normally; only Mjolnir's process-wide graceful shutdown is
+/// the signal normally; only Belgr's process-wide graceful shutdown is
 /// suspended until the guard is dropped.
 pub struct SuppressInterruptGuard;
 

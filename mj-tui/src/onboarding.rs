@@ -21,7 +21,7 @@ use crate::settings::{
 };
 use crate::term::TrackedBackend;
 
-const TEAM_SELECTION_REQUIRED: &str = "Choose one of the four Mjolnir Teams before saving.";
+const TEAM_SELECTION_REQUIRED: &str = "Choose one of the four Belgr Teams before saving.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -192,8 +192,8 @@ pub async fn run(
 
 fn draw(frame: &mut ratatui::Frame, state: &State) {
     let title = match state.kind {
-        Kind::Fresh => "Set up Mjolnir Teams",
-        Kind::Upgrade => "Configure Mjolnir Teams",
+        Kind::Fresh => "Set up Belgr Teams",
+        Kind::Upgrade => "Configure Belgr Teams",
     };
     let area = frame.area();
     if area.width < SETTINGS_PANEL_MIN_WIDTH || area.height < SETTINGS_PANEL_MIN_HEIGHT {
@@ -283,7 +283,7 @@ mod tests {
         assert_eq!(state.editor.tab, SettingsTab::Team);
         let rendered = render(&state);
         for expected in [
-            "Set up Mjolnir Teams",
+            "Set up Belgr Teams",
             "Team",
             "Reviewer",
             "Subagents",
@@ -295,7 +295,7 @@ mod tests {
             "Recommended team",
             "Extended review",
             "Luna xhigh",
-            "Choose one of the four Mjolnir Teams before saving",
+            "Choose one of the four Belgr Teams before saving",
             "Enter save",
             "Esc cancel",
         ] {

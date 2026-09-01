@@ -1128,7 +1128,7 @@ impl WorkflowEmitter {
     }
 }
 
-/// Workflow metadata carried by a Mjolnir-owned programmatic subagent. The
+/// Workflow metadata carried by a Belgr-owned programmatic subagent. The
 /// worker binds the actual ACP session id after `session/new`; orchestration
 /// code still owns phase, waiting-count, and verdict transitions.
 #[derive(Debug, Clone)]

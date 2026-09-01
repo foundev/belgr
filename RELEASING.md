@@ -1,4 +1,4 @@
-# Releasing Mjolnir
+# Releasing Belgr
 
 Releases are maintainer-driven. This is the tagging runbook; see
 [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, runtime invariants,
@@ -57,9 +57,9 @@ already-published release.
 
 ## crates.io publishing
 
-`publish.yml` publishes `brokk-mj-voice-worker`, `brokk-mj-core`,
-`brokk-mj-agents`, `brokk-mj-anvil`, `brokk-mj-tui`, `brokk-mj-remote`,
-`brokk-mj-desktop`, and `brokk-mjolnir` in dependency order: each library crate
+`publish.yml` publishes `belgr-mj-voice-worker`, `belgr-mj-core`,
+`belgr-mj-agents`, `belgr-mj-anvil`, `belgr-mj-tui`, `belgr-mj-remote`,
+`belgr-mj-desktop`, and `belgr` in dependency order: each library crate
 must reach the registry before anything that depends on it.
 It refuses to publish when the tag differs from any workspace crate version. It
 packages the whole workspace in one `cargo package --workspace` run — so the
@@ -87,7 +87,7 @@ off and inspect its `.crate` artifact.
 
 ## npm publishing
 
-`publish-npm.yml` packages an existing GitHub Release into `@brokkai/mjolnir`
+`publish-npm.yml` packages an existing GitHub Release into `@brokkai/belgr`
 and its five platform packages. It verifies the release checksums, then
 publishes every platform package before the root wrapper.
 

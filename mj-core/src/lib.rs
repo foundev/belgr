@@ -1,4 +1,4 @@
-//! Frontend-neutral runtime and session kernel for Mjolnir.
+//! Frontend-neutral runtime and session kernel for Belgr.
 
 pub mod acp;
 pub mod agent_usage;

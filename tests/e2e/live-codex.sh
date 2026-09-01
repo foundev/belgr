@@ -2,7 +2,7 @@
 set -eu
 
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-bin=${MJ_E2E_BIN:-"$repo/target/debug/mj"}
+bin=${MJ_E2E_BIN:-"$repo/target/debug/belgr"}
 real_home=$HOME
 root=$(mktemp -d "${TMPDIR:-/tmp}/mj-subagents-live.XXXXXX")
 cleanup() {
@@ -15,7 +15,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 workspace="$root/workspace"
-mkdir -p "$workspace" "$root/home/.config/mj" "$root/home/Library/Application Support/mj"
+mkdir -p "$workspace" "$root/home/.config/belgr" "$root/home/Library/Application Support/belgr"
 git -C "$workspace" init -q
 nonce=$(date +%s)-$$
 target="$workspace/subagent-live-$nonce.txt"
@@ -23,8 +23,8 @@ target_name=$(basename "$target")
 token="SUBAGENT_LIVE_OK_$nonce"
 
 config="version = 4\n\n[agent]\nmodel = \"auto\"\n\n[subagents]\nmodel = \"auto\"\n"
-printf '%b' "$config" >"$root/home/.config/mj/config.toml"
-printf '%b' "$config" >"$root/home/Library/Application Support/mj/config.toml"
+printf '%b' "$config" >"$root/home/.config/belgr/config.toml"
+printf '%b' "$config" >"$root/home/Library/Application Support/belgr/config.toml"
 
 before="$root/processes-before"
 after="$root/processes-after"

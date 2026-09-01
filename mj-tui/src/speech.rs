@@ -1,6 +1,6 @@
 //! Prompt dictation support.
 //!
-//! Non-Android platforms run a fully local `mj-voice-worker` sidecar built on
+//! Non-Android platforms run a fully local `belgr-voice-worker` sidecar built on
 //! sherpa-onnx. Keeping the native speech stack in its own workspace package
 //! means ordinary `mj` builds never compile or link ONNX Runtime.
 //!
@@ -127,9 +127,9 @@ mod worker {
 
         let mj = std::env::current_exe().context("locate the mj executable")?;
         let worker = mj.with_file_name(if cfg!(windows) {
-            "mj-voice-worker.exe"
+            "belgr-voice-worker.exe"
         } else {
-            "mj-voice-worker"
+            "belgr-voice-worker"
         });
         anyhow::ensure!(
             worker.is_file(),

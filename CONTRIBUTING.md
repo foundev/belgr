@@ -1,6 +1,6 @@
-# Contributing to Mjolnir
+# Contributing to Belgr
 
-Thanks for helping improve Mjolnir. Contributions from people using AI tools
+Thanks for helping improve Belgr. Contributions from people using AI tools
 are welcome; everyone remains responsible for the accuracy, safety, licensing,
 and relevance of what they submit. Please follow the
 [Code of Conduct](CODE_OF_CONDUCT.md).
@@ -8,7 +8,7 @@ and relevance of what they submit. Please follow the
 ## Before You Start
 
 - Search existing issues and pull requests before opening a new one.
-- Use the TUI, session, or remote bug form for incorrect behavior while Mjolnir
+- Use the TUI, session, or remote bug form for incorrect behavior while Belgr
   is running. Use the other-bug form for installation, development setup,
   packaging, updating, or documentation problems. Blank issues remain
   available when neither form fits.
@@ -25,7 +25,7 @@ An issue is useful but not mandatory for a well-scoped pull request. Use
 
 ## Development Setup
 
-Mjolnir is a Rust 2024 workspace. The default member builds the `mj` terminal
+Belgr is a Rust 2024 workspace. The default member builds the `mj` terminal
 client without the optional native speech stack:
 
 ```bash
@@ -59,7 +59,7 @@ libsoup 3 API, not the GTK 4 `webkitgtk6.0-devel` package. Then build it with:
 cargo build --release
 ```
 
-The `brokk-mj-voice-worker` workspace member provides local Ctrl-R dictation.
+The `belgr-mj-voice-worker` workspace member provides local Ctrl-R dictation.
 On macOS it uses the system CoreAudio framework, so the Command Line Tools
 above are sufficient. On Linux, install the ALSA development package before
 building it:
@@ -72,23 +72,23 @@ sudo apt-get install libasound2-dev
 # Fedora
 sudo dnf install alsa-lib-devel
 
-cargo build --release -p brokk-mj-voice-worker
+cargo build --release -p belgr-mj-voice-worker
 ```
 
-The worker is optional for ordinary Mjolnir development. When testing
+The worker is optional for ordinary Belgr development. When testing
 dictation, put `mj-voice-worker` beside `mj` in the target directory or set
 `MJ_VOICE_WORKER` to the worker executable.
 
 ## Understand the Runtime Boundaries
 
-Mjolnir is an ACP client that owns terminal presentation, user input,
+Belgr is an ACP client that owns terminal presentation, user input,
 permissions, session controls, multi-agent orchestration, and persistence around
 one or more agent subprocesses. The detailed repository contracts are
 maintained in [AGENTS.md](AGENTS.md). The most important contribution
 boundaries are:
 
 - Do not write logs to standard error while the TUI owns the terminal. Use
-  `--debug-file` or `BROKK_TUI_LOG` for Mjolnir diagnostics and
+  `--debug-file` or `BROKK_TUI_LOG` for Belgr diagnostics and
   `--agent-stderr` or `BROKK_TUI_AGENT_STDERR` for ACP adapter output.
 - Permission requests must preserve the complete requested content. Long
   commands, descriptions, and option labels must remain reachable while
@@ -147,9 +147,9 @@ module target, and reviewed integration-boundary exceptions are documented in
 When changing the voice worker, also run:
 
 ```bash
-cargo clippy -p brokk-mj-voice-worker --all-targets -- -D warnings
-cargo test -p brokk-mj-voice-worker
-cargo build --release -p brokk-mj-voice-worker
+cargo clippy -p belgr-mj-voice-worker --all-targets -- -D warnings
+cargo test -p belgr-mj-voice-worker
+cargo build --release -p belgr-mj-voice-worker
 ```
 
 UI changes need proportionate manual validation in every affected surface.
@@ -166,7 +166,7 @@ portable code.
 
 ## Dependency and License Changes
 
-Commit `Cargo.lock` when dependency resolution changes. Mjolnir uses a reviewed,
+Commit `Cargo.lock` when dependency resolution changes. Belgr uses a reviewed,
 deny-by-default dependency-license policy and ships generated notices for the
 Rust workspace, native voice dependencies, and embedded fonts. Do not broaden
 an allowed license or add an exception without explaining
@@ -197,7 +197,7 @@ license.
 ## Pull Requests
 
 A useful pull request description lets a reviewer understand the behavioral
-change without reconstructing it from the file diff. Recent Mjolnir pull
+change without reconstructing it from the file diff. Recent Belgr pull
 requests consistently provide:
 
 - A concise description of what changed, why, and the observable effect.
@@ -216,7 +216,7 @@ pass. Do not report a check as passing based only on an expected outcome.
 Reviewers will pay particular attention to:
 
 - Terminal ownership, restoration, and complete permission content.
-- ACP compatibility and correct separation between Mjolnir-owned and
+- ACP compatibility and correct separation between Belgr-owned and
   adapter-owned state.
 - Agent role attribution, cancellation, and deterministic transcript and
   tool-result behavior.

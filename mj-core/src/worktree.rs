@@ -1,7 +1,7 @@
 //! Git worktree support for `mj --worktree`.
 //!
 //! A worktree session clones the current project checkout into a linked
-//! Git worktree below `<project>/.mjolnir/worktrees/` and points the ACP
+//! Git worktree below `<project>/.belgr/worktrees/` and points the ACP
 //! session at the corresponding directory there. The directory should be
 //! ignored so the nested worktree does not show up as untracked content.
 
@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, anyhow, bail};
 
-const WORKTREE_IGNORE_ENTRY: &str = ".mjolnir/worktrees/";
+const WORKTREE_IGNORE_ENTRY: &str = ".belgr/worktrees/";
 
 /// Adjectives for random worktree names (adjective-noun style, like
 /// Docker container names). Kept short so the header label stays
@@ -45,7 +45,7 @@ pub struct CreatedWorktree {
     pub was_created: bool,
 }
 
-/// Resolve the current Git project, ensure the Mjolnir worktree directory is
+/// Resolve the current Git project, ensure the Belgr worktree directory is
 /// ignored when the user agrees, create a fresh linked worktree, and return the
 /// directory that should be used as the ACP session cwd.
 pub fn create_for_cwd_prompting(
@@ -98,7 +98,7 @@ pub fn create_noninteractive(cwd: &Path) -> Result<CreatedWorktree> {
 }
 
 /// Open an existing worktree by name (short name under
-/// `.mjolnir/worktrees/`) or by path (absolute or relative to `cwd`).
+/// `.belgr/worktrees/`) or by path (absolute or relative to `cwd`).
 /// The target directory must already exist and be a registered Git
 /// worktree.
 pub fn open_existing_for_cwd_prompting(
@@ -261,7 +261,7 @@ fn prompt_to_ignore_worktrees(
 
     writeln!(
         output,
-        "Mjolnir stores linked worktrees under {}.",
+        "Belgr stores linked worktrees under {}.",
         WORKTREE_IGNORE_ENTRY
     )?;
     write!(output, "Add {WORKTREE_IGNORE_ENTRY} to .gitignore? [y/N] ")?;
@@ -341,7 +341,7 @@ fn append_gitignore_entry(checkout_root: &Path) -> Result<()> {
     if !next.is_empty() {
         next.push('\n');
     }
-    next.push_str("# Mjolnir linked worktrees\n");
+    next.push_str("# Belgr linked worktrees\n");
     next.push_str(WORKTREE_IGNORE_ENTRY);
     next.push('\n');
 
@@ -356,14 +356,14 @@ fn gitignore_text_contains_worktree_entry(text: &str) -> bool {
             && !line.starts_with('#')
             && matches!(
                 line,
-                ".mjolnir/"
-                    | "/.mjolnir/"
-                    | ".mjolnir"
-                    | "/.mjolnir"
-                    | ".mjolnir/worktrees/"
-                    | "/.mjolnir/worktrees/"
-                    | ".mjolnir/worktrees"
-                    | "/.mjolnir/worktrees"
+                ".belgr/"
+                    | "/.belgr/"
+                    | ".belgr"
+                    | "/.belgr"
+                    | ".belgr/worktrees/"
+                    | "/.belgr/worktrees/"
+                    | ".belgr/worktrees"
+                    | "/.belgr/worktrees"
             )
     })
 }
@@ -446,7 +446,7 @@ fn mix_seed(nanos: u128, pid: u32) -> u64 {
 }
 
 fn worktrees_dir(project_root: &Path) -> PathBuf {
-    project_root.join(".mjolnir").join("worktrees")
+    project_root.join(".belgr").join("worktrees")
 }
 
 fn run_git<'a>(project_root: &Path, args: impl IntoIterator<Item = &'a OsStr>) -> Result<()> {
@@ -489,12 +489,12 @@ mod tests {
     #[test]
     fn gitignore_detection_recognizes_parent_and_worktree_entries() {
         assert!(gitignore_text_contains_worktree_entry(
-            ".mjolnir/worktrees/\n"
+            ".belgr/worktrees/\n"
         ));
-        assert!(gitignore_text_contains_worktree_entry("/.mjolnir/\n"));
-        assert!(gitignore_text_contains_worktree_entry(".mjolnir\n"));
+        assert!(gitignore_text_contains_worktree_entry("/.belgr/\n"));
+        assert!(gitignore_text_contains_worktree_entry(".belgr\n"));
         assert!(!gitignore_text_contains_worktree_entry(
-            "# .mjolnir/worktrees/\n"
+            "# .belgr/worktrees/\n"
         ));
         assert!(!gitignore_text_contains_worktree_entry("target/\n"));
     }
@@ -509,7 +509,7 @@ mod tests {
         let text = std::fs::read_to_string(&gitignore).expect("read gitignore");
 
         assert!(text.contains("target/\n"));
-        assert!(text.contains("# Mjolnir linked worktrees\n.mjolnir/worktrees/\n"));
+        assert!(text.contains("# Belgr linked worktrees\n.belgr/worktrees/\n"));
     }
 
     #[test]
@@ -522,9 +522,9 @@ mod tests {
         prompt_to_ignore_worktrees(dir.path(), &mut input, &mut output).expect("prompt");
 
         let text = std::fs::read_to_string(dir.path().join(".gitignore")).expect("gitignore");
-        assert!(text.contains(".mjolnir/worktrees/"));
+        assert!(text.contains(".belgr/worktrees/"));
         let output = String::from_utf8(output).expect("output utf8");
-        assert!(output.contains("Added .mjolnir/worktrees/ to .gitignore."));
+        assert!(output.contains("Added .belgr/worktrees/ to .gitignore."));
     }
 
     #[test]
@@ -533,7 +533,7 @@ mod tests {
         init_git_repo(dir.path());
         std::fs::write(
             dir.path().join(".gitignore"),
-            ".mjolnir/worktrees/\n!.mjolnir/worktrees/\n",
+            ".belgr/worktrees/\n!.belgr/worktrees/\n",
         )
         .expect("write gitignore");
         assert!(!git_check_ignores_worktrees(dir.path()).expect("check initial ignore"));
@@ -544,7 +544,7 @@ mod tests {
 
         assert!(git_check_ignores_worktrees(dir.path()).expect("check final ignore"));
         let text = std::fs::read_to_string(dir.path().join(".gitignore")).expect("gitignore");
-        assert!(text.ends_with("# Mjolnir linked worktrees\n.mjolnir/worktrees/\n"));
+        assert!(text.ends_with("# Belgr linked worktrees\n.belgr/worktrees/\n"));
     }
 
     #[test]
@@ -566,7 +566,7 @@ mod tests {
         );
         let worktree_gitignore =
             std::fs::read_to_string(created.worktree_root.join(".gitignore")).expect("gitignore");
-        assert!(worktree_gitignore.contains(".mjolnir/worktrees/"));
+        assert!(worktree_gitignore.contains(".belgr/worktrees/"));
         assert!(git_check_ignores_worktrees(&created.worktree_root).expect("check worktree"));
         assert!(!git_check_ignores_worktrees(dir.path()).expect("check parent"));
     }
@@ -586,7 +586,7 @@ mod tests {
         assert!(
             created
                 .worktree_root
-                .starts_with(dir.path().join(".mjolnir/worktrees"))
+                .starts_with(dir.path().join(".belgr/worktrees"))
         );
         assert_eq!(created.session_cwd, created.worktree_root.join("nested"));
         assert!(created.session_cwd.join("file.txt").exists());
@@ -627,7 +627,7 @@ mod tests {
         assert!(created.session_cwd.join("file.txt").exists());
         let repo_root = dir.path().canonicalize().expect("canonicalize");
         let worktree_root = created.worktree_root.canonicalize().expect("canonicalize");
-        assert!(worktree_root.starts_with(repo_root.join(".mjolnir").join("worktrees")));
+        assert!(worktree_root.starts_with(repo_root.join(".belgr").join("worktrees")));
         assert!(!dir.path().join(".gitignore").exists());
     }
 
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn unique_worktree_path_produces_nonexistent_dirs() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let wt_dir = dir.path().join(".mjolnir").join("worktrees");
+        let wt_dir = dir.path().join(".belgr").join("worktrees");
         std::fs::create_dir_all(&wt_dir).expect("mkdir");
 
         let path = unique_worktree_path(&wt_dir).expect("unique path");
@@ -778,9 +778,9 @@ mod tests {
             path,
             [
                 OsStr::new("-c"),
-                OsStr::new("user.name=Mjolnir Test"),
+                OsStr::new("user.name=Belgr Test"),
                 OsStr::new("-c"),
-                OsStr::new("user.email=mjolnir@example.invalid"),
+                OsStr::new("user.email=belgr@example.invalid"),
                 OsStr::new("commit"),
                 OsStr::new("-am"),
                 OsStr::new("initial"),

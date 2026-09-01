@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing Mjolnir release tag to package, in the form vX.Y.Z
+        description: Existing Belgr release tag to package, in the form vX.Y.Z
         required: true
         type: string
       publish:
@@ -59,14 +59,14 @@ jobs:
       - name: Package crates
         run: |
           # Packaging the whole workspace in one run lets cargo resolve the
-          # same-release sibling versions (brokk-mj-core, brokk-mj-agents,
-          # brokk-mj-tui, brokk-mj-remote, brokk-mj-desktop) against the crates
+          # same-release sibling versions (belgr-mj-core, belgr-mj-agents,
+          # belgr-mj-tui, belgr-mj-remote, belgr-mj-desktop) against the crates
           # packaged alongside them
           # instead of against the registry, where this version does not exist
           # until the publish job.
           cargo package --locked --workspace
           # Build the normal desktop CLI after package verification.
-          cargo build --locked -p brokk-mjolnir
+          cargo build --locked -p belgr
 
       - uses: actions/upload-artifact@v7
         with:
@@ -142,13 +142,13 @@ jobs:
                 ;;
             esac
           }
-          # Dependency order: brokk-mj-core has no workspace dependencies;
-          # brokk-mj-agents and brokk-mj-anvil need it; brokk-mj-tui needs core
-          # and agents; brokk-mj-remote needs core; and the root binary needs
-          # all of them plus brokk-mj-desktop. brokk-mj-voice-worker is
+          # Dependency order: belgr-mj-core has no workspace dependencies;
+          # belgr-mj-agents and belgr-mj-anvil need it; belgr-mj-tui needs core
+          # and agents; belgr-mj-remote needs core; and the root binary needs
+          # all of them plus belgr-mj-desktop. belgr-mj-voice-worker is
           # independent. Publishing out of this order fails on a missing
           # registry dependency.
-          for crate in brokk-mj-voice-worker brokk-mj-core brokk-mj-agents brokk-mj-anvil brokk-mj-tui brokk-mj-remote brokk-mj-desktop brokk-mjolnir; do
+          for crate in belgr-mj-voice-worker belgr-mj-core belgr-mj-agents belgr-mj-anvil belgr-mj-tui belgr-mj-remote belgr-mj-desktop belgr; do
             if already_published "$crate"; then
               echo "$crate $version is already on crates.io, skipping"
               continue

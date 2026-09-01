@@ -1,5 +1,5 @@
 [package]
-name = "brokk-mj-desktop"
+name = "belgr-mj-desktop"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

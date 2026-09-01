@@ -206,8 +206,8 @@ pub struct SessionRecord {
     pub last_prompt_at: Option<String>,
     pub total_messages: u64,
     pub project: String,
-    /// Short name of the Mjolnir worktree the session runs in (e.g.
-    /// `bold-fox`), when it runs under `<project>/.mjolnir/worktrees/`.
+    /// Short name of the Belgr worktree the session runs in (e.g.
+    /// `bold-fox`), when it runs under `<project>/.belgr/worktrees/`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worktree: Option<String>,
     pub agent: String,
@@ -248,11 +248,11 @@ pub struct SessionRecord {
     #[serde(default)]
     pub session_config: Vec<SessionConfigOptionRecord>,
     /// The native Codex Mode currently advertised by this live primary session.
-    /// It is intentionally status-only: Mjolnir never changes it.
+    /// It is intentionally status-only: Belgr never changes it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_mode: Option<NativeModeRecord>,
     /// Slash commands available in the web composer. This includes agent
-    /// commands from ACP plus the subset of Mjolnir-local commands that have a
+    /// commands from ACP plus the subset of Belgr-local commands that have a
     /// web equivalent.
     #[serde(default)]
     pub available_commands: Vec<CommandRecord>,
@@ -444,7 +444,7 @@ pub struct CommandRecord {
     pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input_hint: Option<String>,
-    /// `mjolnir` for Mjolnir-owned commands, `agent` for ACP-advertised
+    /// `belgr` for Belgr-owned commands, `agent` for ACP-advertised
     /// commands that are sent as slash prompt text.
     pub source: String,
 }
@@ -468,7 +468,7 @@ fn web_shared_record(spec: &builtin_commands::SharedCommand) -> CommandRecord {
         spec.name,
         spec.web_description,
         spec.web_input_hint.map(str::to_string),
-        "mjolnir",
+        "belgr",
     )
 }
 
@@ -477,7 +477,7 @@ fn web_only_record(spec: &builtin_commands::SurfaceCommand) -> CommandRecord {
         spec.name,
         spec.description,
         spec.input_hint.map(str::to_string),
-        "mjolnir",
+        "belgr",
     )
 }
 
@@ -537,7 +537,7 @@ fn install_remote_side_mode_command(
                 REMOTE_BUILTIN_EXIT_SIDE_COMMAND,
                 "leave and delete the side conversation",
                 None,
-                "mjolnir",
+                "belgr",
             ),
         );
     } else if side_session_supported {
@@ -1353,7 +1353,7 @@ struct QueuePromptRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct NewServerSessionRequest {
     cwd: String,
-    /// When true, start the session in a fresh Mjolnir worktree of the git
+    /// When true, start the session in a fresh Belgr worktree of the git
     /// project containing `cwd` instead of `cwd` itself.
     #[serde(default)]
     worktree: bool,
@@ -3230,7 +3230,7 @@ impl RemoteSessionTracker {
     fn new_disconnected(project: String, agent: String) -> Self {
         Self {
             remote_dir: Arc::new(std::env::temp_dir().join(format!(
-                "mjolnir-test-no-remote-control-{}",
+                "belgr-test-no-remote-control-{}",
                 std::process::id()
             ))),
             connection: Arc::new(Mutex::new(None)),
@@ -5510,15 +5510,15 @@ struct MjAppearancePanel {
 /// use: no terminal keybindings. The TUI keeps its own list in `mj-tui`.
 const WEB_FEATURE_TIPS: &[&str] = &[
     "Pick Codex, Claude, or a mixed coder/reviewer team from the Team tab in settings.",
-    "Queue another instruction while the agent is working; Mjolnir sends it when the turn allows and can steer supported agents mid-turn.",
+    "Queue another instruction while the agent is working; Belgr sends it when the turn allows and can steer supported agents mid-turn.",
     "Permission requests show the exact command or diff behind the action, so approvals are evidence-backed rather than blind.",
     "The primary agent can launch specialist subagents in parallel; their live activity appears above the composer.",
-    "Mjolnir can automatically review changed turns, track validated findings in the Review Board, and correct them according to your policy.",
+    "Belgr can automatically review changed turns, track validated findings in the Review Board, and correct them according to your policy.",
     "The ± button shows the session's uncommitted workspace changes.",
     "Attach images to your next prompt with the Images button when the agent supports them.",
     "Install this page as an app on your phone: prompts, approvals, and reviews work anywhere the server is reachable.",
     "Sessions started in the terminal appear here live, and sessions started here are ordinary mj sessions.",
-    "Mjolnir synchronizes verified project knowledge locally across Codex and Claude, so switching providers does not erase repository context.",
+    "Belgr synchronizes verified project knowledge locally across Codex and Claude, so switching providers does not erase repository context.",
 ];
 
 #[derive(Debug, Serialize)]
@@ -8214,7 +8214,7 @@ fn internal_error(error: impl std::fmt::Display) -> (StatusCode, String) {
 fn remote_control_dir() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("mj")
+        .join("belgr")
         .join("remote-control")
 }
 
@@ -10802,7 +10802,7 @@ mod tests {
     fn test_credentials_available(
         _vendor: mj_core::auth::AuthVendor,
     ) -> mj_core::auth::CredentialSource {
-        mj_core::auth::CredentialSource::Environment("MJOLNIR_TEST_CREDENTIAL")
+        mj_core::auth::CredentialSource::Environment("BELGR_TEST_CREDENTIAL")
     }
 
     fn test_credentials_missing(
@@ -12697,9 +12697,9 @@ for (const expected of [
         let viewer = include_str!("remote_viewer.html");
         assert!(viewer.contains("function scheduleSessionResumeRetry"));
         assert!(viewer.contains("function retryPendingViewerSession"));
-        assert!(viewer.contains("showAuth(`Can't reach Mjolnir."));
+        assert!(viewer.contains("showAuth(`Can't reach Belgr."));
         assert!(
-            !viewer.contains("showAuth(`Can't reach Mjolnir. Reconnecting automatically…`, true)")
+            !viewer.contains("showAuth(`Can't reach Belgr. Reconnecting automatically…`, true)")
         );
         assert!(viewer.contains("scheduleSessionResumeRetry();"));
         assert!(viewer.contains("window.addEventListener(\"online\", retryPendingViewerSession)"));
@@ -14346,7 +14346,7 @@ for (const [field, seat] of [
             "start_time": "2026-06-03T10:00:00Z",
             "last_update": "2026-06-03T10:00:00Z",
             "total_messages": 0,
-            "project": "mjolnir",
+            "project": "belgr",
             "agent": "opencode",
         });
         let session: SessionRecord = serde_json::from_value(legacy).expect("legacy record");
@@ -15605,7 +15605,7 @@ for (const [field, seat] of [
             last_update: "2026-06-03T10:00:20Z".to_string(),
             last_prompt_at: None,
             total_messages: 4,
-            project: "mjolnir".to_string(),
+            project: "belgr".to_string(),
             worktree: Some("bold-fox".to_string()),
             agent: "opencode".to_string(),
             transcript: vec![
@@ -15789,7 +15789,7 @@ for (const [field, seat] of [
             "start_time": "2026-06-03T10:00:00Z",
             "last_update": "2026-06-03T10:00:20Z",
             "total_messages": 1,
-            "project": "mjolnir",
+            "project": "belgr",
             "agent": "opencode"
         }"#;
         let record: SessionRecord = serde_json::from_str(json).expect("deserialize");
@@ -15817,9 +15817,9 @@ for (const [field, seat] of [
         run(&["add", "."]);
         run(&[
             "-c",
-            "user.name=Mjolnir Test",
+            "user.name=Belgr Test",
             "-c",
-            "user.email=mjolnir@example.invalid",
+            "user.email=belgr@example.invalid",
             "commit",
             "-m",
             "initial",
@@ -15887,7 +15887,7 @@ for (const [field, seat] of [
             source: agent_client_protocol::Error::internal_error().data(serde_json::json!({
                 "details": "spawn Unknown system error -88"
             })),
-            stdio_mcp_servers: vec!["workspace-tools (/opt/mjolnir/workspace-tools)".to_string()]
+            stdio_mcp_servers: vec!["workspace-tools (/opt/belgr/workspace-tools)".to_string()]
                 .into_boxed_slice(),
         }
         .to_string();
@@ -15902,7 +15902,7 @@ for (const [field, seat] of [
             "{error}"
         );
         assert!(
-            error.contains("workspace-tools (/opt/mjolnir/workspace-tools)"),
+            error.contains("workspace-tools (/opt/belgr/workspace-tools)"),
             "{error}"
         );
         assert!(!error.contains("--cwd"), "{error}");
@@ -16261,7 +16261,7 @@ for (const [field, seat] of [
             last_update: fresh.clone(),
             last_prompt_at: None,
             total_messages: 1,
-            project: "mjolnir".to_string(),
+            project: "belgr".to_string(),
             worktree: None,
             agent: "agent".to_string(),
             transcript: Vec::new(),
@@ -18140,8 +18140,8 @@ for (const [field, seat] of [
                 "load",
             ]
         );
-        assert_eq!(snapshot.available_commands[0].source, "mjolnir");
-        assert_eq!(snapshot.available_commands[7].source, "mjolnir");
+        assert_eq!(snapshot.available_commands[0].source, "belgr");
+        assert_eq!(snapshot.available_commands[7].source, "belgr");
         assert_eq!(
             snapshot.available_commands[7].input_hint.as_deref(),
             Some("recent|uncommitted|head [quick|extended]")
@@ -18611,7 +18611,7 @@ for (const [field, seat] of [
             last_update: "2026-06-10T10:00:20Z".to_string(),
             last_prompt_at: None,
             total_messages: 1,
-            project: "mjolnir".to_string(),
+            project: "belgr".to_string(),
             worktree: None,
             agent: "opencode".to_string(),
             transcript: Vec::new(),
@@ -19232,7 +19232,7 @@ for (const [field, seat] of [
     fn sessions_do_not_implicitly_populate_recent_folders() {
         let dir = tempfile::tempdir().expect("root");
         let plain_path = dir.path().join("plain");
-        let worktree_path = dir.path().join(".mjolnir/worktrees/generated");
+        let worktree_path = dir.path().join(".belgr/worktrees/generated");
         std::fs::create_dir_all(&plain_path).expect("plain directory");
         std::fs::create_dir_all(&worktree_path).expect("worktree directory");
         let roots = test_workspace_roots(dir.path());
@@ -20241,7 +20241,7 @@ for (const [field, seat] of [
                 .to_vec(),
         )
         .expect("viewer utf8");
-        assert!(viewer.contains("Mjolnir Web"));
+        assert!(viewer.contains("Belgr Web"));
         assert!(viewer.contains("Sign in"));
         assert!(!viewer.contains("Unlock Remote Sessions"));
         assert!(!viewer.contains(&token));

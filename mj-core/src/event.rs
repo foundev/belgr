@@ -193,7 +193,7 @@ pub enum UiEvent {
     /// render a modal and answer through `responder` exactly once.
     PermissionRequest(PermissionPrompt),
     /// Changes observed in the local workspace after a prompt turn. This is
-    /// Mjolnir-native state, not an ACP tool call or transcript entry. It
+    /// Belgr-native state, not an ACP tool call or transcript entry. It
     /// answers "what did this turn touch", which is the status-line and
     /// remote-mirror question, not the one the Ctrl-G reader asks.
     WorkspaceDiff(WorkspaceDiffEvent),
@@ -489,7 +489,7 @@ pub enum UiCommand {
     /// holds both the saved values and the session's advertised options; a
     /// frontend that cannot see the live options can still ask for it.
     ReapplySavedSessionConfig,
-    /// Run one Mjolnir-owned discrete review while the primary is idle.
+    /// Run one Belgr-owned discrete review while the primary is idle.
     RunReview { request: ReviewRequest },
     /// Cancel only the active discrete review. The coordinator consumes this
     /// command without forwarding a cancellation to the primary ACP runtime.

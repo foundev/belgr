@@ -147,12 +147,7 @@ pub async fn run(cfg: RunConfig) -> Result<()> {
             session_tag: None,
             reasoning_effort: primary.reasoning_effort.clone(),
         }),
-        // Anvil already owns its sandboxed subagent runtime. Its MCP child
-        // processes cannot connect back to Belgr's loopback bridge, so
-        // advertising this service deadlocks the prompt before any LLM call.
-        subagents: (primary.launch.source_id != mj_anvil::SOURCE_ID)
-            .then_some(subagent_pool)
-            .flatten()
+        subagents: subagent_pool
             .map(|subagent_pool| {
                 let mut config = subagent::Config::new(subagent_pool, cfg.agent_stderr.clone())
                     .with_subagent_handoff_counter(subagent_handoffs.clone())

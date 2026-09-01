@@ -2648,11 +2648,8 @@ async fn run_session(
         )),
         None => subagent::LiveRuntimeService::unconfigured(),
     };
-    // Anvil supplies its own sandboxed subagent runtime. An MCP process that
-    // it launches cannot reach Belgr's loopback bridge, which leaves
-    // session/prompt stuck while Anvil builds its tool registry.
-    let runtime_subagents = (roster.primary.launch.source_id != mj_anvil::SOURCE_ID)
-        .then(|| Arc::new(live_subagent_service.clone()) as Arc<dyn acp::RuntimeService>);
+    let runtime_subagents =
+        Some(Arc::new(live_subagent_service.clone()) as Arc<dyn acp::RuntimeService>);
 
     let mut primary_env = agent.env.clone();
     let primary_permission = runtime_options.permission_mode.and_then(|mode| {

@@ -6,7 +6,7 @@ rust-version = "1.97"
 description = "Native local speech-recognition sidecar for belgr"
 license = "GPL-3.0-only"
 repository = "https://github.com/foundev/belgr"
-publish = true
+publish = false
 
 [[bin]]
 name = "belgr-voice-worker"

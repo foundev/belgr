@@ -12,8 +12,8 @@ jobs:
   # Tags are not covered by the branch and pull request triggers on CI, so
   # nothing else re-checks the tagged tree. Collecting coverage runs the whole
   # workspace test suite, so this gates the release on the tests passing and on
-  # the coverage baseline holding. Everything downstream of the release
-  # workflow, crates.io and npm included, inherits the gate.
+  # coverage baseline holding. Everything downstream of the release workflow
+  # inherits the gate.
   coverage:
     name: Coverage gate
     uses: ./.github/workflows/coverage.yml
@@ -279,7 +279,6 @@ jobs:
     needs: [build-linux, build-linux-arm64, build-android, build-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
-      actions: write
       contents: write
     steps:
       - uses: actions/checkout@v6
@@ -299,18 +298,6 @@ jobs:
             artifacts/belgr-*.tar.gz.sha256
             artifacts/belgr-*.zip
             artifacts/belgr-*.zip.sha256
-
-      # Events created with GITHUB_TOKEN do not start workflows, while crates.io
-      # rejects trusted-publishing requests from the workflow_run event. An
-      # explicit dispatch is both supported by GitHub and trusted by crates.io.
-      - name: Dispatch crates.io publishing
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run publish.yml \
-            --ref "$GITHUB_REF_NAME" \
-            --raw-field release_tag="$GITHUB_REF_NAME" \
-            --raw-field publish=true
 
       - name: Announce release on Discord
         continue-on-error: true

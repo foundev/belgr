@@ -25,7 +25,7 @@ Anvil's fire going.
 - **Separate install identity.** Binary `belgr`, config in `~/.config/belgr/`, project
   marker dir `.belgr/` — a Belgr install never collides with a Mjolnir install on the
   same machine.
-- **Package names**: crates `belgr` / `belgr-mj-*`, npm `belgr`.
+- **Distribution**: versioned binary archives are released only through GitHub.
 
 Anvil launches through `uvx brokk acp`; set `MJ_ANVIL_PATH` to point at a local
 Anvil binary instead.

@@ -9,8 +9,8 @@ tests, and dependency-license maintenance.
 The release version is set once, in `[workspace.package]` in the root
 `Cargo.toml`; every workspace crate inherits it via `version.workspace = true`,
 so they cannot drift apart. After changing that one value, run
-`node scripts/release-version.mjs sync` to project it into the published
-internal dependency requirements under `[workspace.dependencies]`, then run
+`node scripts/release-version.mjs sync` to project it into the internal
+dependency requirements under `[workspace.dependencies]`, then run
 `cargo update --workspace` to refresh the workspace entries in `Cargo.lock`.
 CI runs the script's `check` mode so generated dependency versions cannot
 drift. Member manifests inherit the dependencies and contain no release
@@ -40,11 +40,16 @@ tagged commit having passed CI on master.
 The builds cover Linux x86-64 and ARM64, Android ARM64, Windows x86-64, and a
 universal macOS archive. Desktop archives contain `mj` and the voice worker;
 Android omits the voice worker. Every archive includes the applicable licenses
-and notices and is published with a SHA-256 sidecar.
+and notices and is shipped with a SHA-256 sidecar.
 
-Neither registry publish runs off the tag push. Both wait for the release
-workflow to succeed, so the coverage gate and a build failure on any target
-each stop the release before anything reaches crates.io or npm.
+## Distribution
+
+Belgr releases only through GitHub Releases. A successful tagged build attaches
+the platform archives and their SHA-256 sidecars to the generated release; no
+crates.io, npm, PyPI, Homebrew, or other package-registry publishing runs.
+
+The `uvx brokk acp` command used to launch Anvil is a runtime dependency of
+Belgr, not a Belgr distribution channel.
 
 ## Discord announcement
 
@@ -54,50 +59,6 @@ webhook URL. The release workflow reuses GitHub's generated release notes,
 prevents mentions from being parsed, suppresses automatic link embeds, and
 leaves a failed Discord delivery as a warning so it cannot invalidate an
 already-published release.
-
-## crates.io publishing
-
-`publish.yml` publishes `belgr-mj-voice-worker`, `belgr-mj-core`,
-`belgr-mj-agents`, `belgr-mj-anvil`, `belgr-mj-tui`, `belgr-mj-remote`,
-`belgr-mj-desktop`, and `belgr` in dependency order: each library crate
-must reach the registry before anything that depends on it.
-It refuses to publish when the tag differs from any workspace crate version. It
-packages the whole workspace in one `cargo package --workspace` run — so the
-same-release sibling versions resolve against the crates packaged beside them
-rather than the registry, where they do not exist yet — and builds the root
-crate with `desktop-app` ahead of the `crates-io` environment gate so a failure
-surfaces without spending an approval.
-
-Publishing runs automatically once the release workflow succeeds. The automated
-release job explicitly dispatches `publish.yml` after creating the GitHub
-Release. This uses a trigger supported by crates.io trusted publishing; GitHub
-does not emit a second workflow from release events created with its workflow
-token, and crates.io rejects the `workflow_run` trigger. A release published by
-another actor also starts `publish.yml` through its release event.
-
-Each crate is skipped when that version is already on the registry. That is the
-recovery path if some crates publish and a later one fails: re-running resumes
-at the crate that did not land. crates.io reserves a version number permanently
-once published and yanking does not release it, so a shipped version can never
-be republished. Every publish is retried, because a crate cannot be packaged
-until the sibling it depends on has propagated through the sparse index.
-
-To package a tag without publishing, run the workflow manually with `publish`
-off and inspect its `.crate` artifact.
-
-## npm publishing
-
-`publish-npm.yml` packages an existing GitHub Release into `@brokkai/belgr`
-and its five platform packages. It verifies the release checksums, then
-publishes every platform package before the root wrapper.
-
-Publishing runs automatically once a GitHub Release is published. Both the
-release event and the release workflow's completion trigger it, and each
-publish step is skipped when that version already exists on the registry, so
-the overlap cannot republish over a shipped version.
-
-To package and smoke-test a tag without publishing, run the workflow manually
-with `publish` off and inspect its tarball artifact and Linux smoke test.
 
 ## Before tagging
 
@@ -111,4 +72,4 @@ Confirm that:
 4. User-facing installation, configuration, and release documentation reflects
    the shipped behavior.
 5. The release commit is merged and the tagged commit is the exact commit meant
-   to be published.
+   to be released.

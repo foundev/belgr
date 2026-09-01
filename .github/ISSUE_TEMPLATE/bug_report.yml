@@ -14,7 +14,7 @@ body:
       label: Affected surface
       description: Where did you encounter the problem?
       options:
-        - Installer or crates.io installation
+        - Installer or GitHub Release archive
         - Build or development setup
         - Release archive or checksum
         - Self-update

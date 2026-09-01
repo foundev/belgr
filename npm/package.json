@@ -1,9 +1,0 @@
-{
-  "name": "belgr-npm-packaging",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "node --test test/*.test.mjs",
-    "package-release": "node scripts/package-release.mjs"
-  }
-}

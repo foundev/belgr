@@ -6,7 +6,7 @@ rust-version = "1.97"
 description = "Terminal client for the Anvil Agent Client Protocol (ACP) coding agent"
 license = "GPL-3.0-only"
 repository = "https://github.com/foundev/belgr"
-publish = true
+publish = false
 
 [workspace]
 members = ["mj-core", "mj-agents", "mj-anvil", "mj-tui", "mj-desktop", "mj-remote", "voice-worker"]
@@ -31,9 +31,8 @@ homepage = "https://github.com/foundev/belgr"
 keywords = ["belgr", "anvil", "acp", "ai", "agents"]
 categories = ["development-tools", "command-line-utilities"]
 
-# Keep every same-release workspace dependency requirement here. Cargo requires
-# published path dependencies to carry a registry version, but release bumps
-# should still change that version in one manifest rather than in every crate.
+# Keep every same-release workspace dependency requirement here, so release
+# bumps change the internal compatibility boundary in one manifest.
 [workspace.dependencies]
 mj-core = { package = "belgr-mj-core", path = "mj-core", version = "1.17.0" }
 mj-agents = { package = "belgr-mj-agents", path = "mj-agents", version = "1.17.0" }

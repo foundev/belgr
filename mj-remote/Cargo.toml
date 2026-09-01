@@ -10,7 +10,7 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 readme = "README.md"
-publish = true
+publish = false
 
 [dependencies]
 async-trait = "0.1"

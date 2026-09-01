@@ -41,8 +41,6 @@ pub enum SettingsAction {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SettingsRow {
-    ReviewModel,
-    ReviewPermissions,
     SubagentModel,
     SubagentPermissions,
     SessionOption {
@@ -219,11 +217,7 @@ impl SettingsEditor {
                 return SettingsAction::None;
             };
             match row {
-                SettingsRow::ReviewModel => self.cycle_model(1, delta),
                 SettingsRow::SubagentModel => self.cycle_model(2, delta),
-                SettingsRow::ReviewPermissions => {
-                    cycle_permission_preset(&mut self.config.review.permission, delta)
-                }
                 SettingsRow::SubagentPermissions => {
                     cycle_permission_preset(&mut self.config.subagents.permission, delta)
                 }
@@ -372,24 +366,15 @@ impl SettingsEditor {
     fn settings_rows(&self, tab: SettingsTab) -> Vec<SettingsRow> {
         match tab {
             SettingsTab::Reviewer => {
-                let mut rows = vec![SettingsRow::ReviewModel, SettingsRow::ReviewPermissions];
-                rows.extend(
-                    self.session_option_rows(SessionDefaultsSeat::Review)
-                        .into_iter()
-                        .map(|(server_index, option_index)| SettingsRow::SessionOption {
-                            seat: SessionDefaultsSeat::Review,
-                            server_index,
-                            option_index,
-                        }),
-                );
-                rows.push(SettingsRow::DiscreteReview);
-                rows.push(SettingsRow::McpDiscreteReview);
-                rows.push(SettingsRow::BifrostAnalysis);
-                rows.push(SettingsRow::BifrostVersion);
-                rows.push(SettingsRow::ReviewTier);
-                rows.push(SettingsRow::CorrectionThreshold);
-                rows.push(SettingsRow::MaxCorrectionRounds);
-                rows
+                vec![
+                    SettingsRow::DiscreteReview,
+                    SettingsRow::McpDiscreteReview,
+                    SettingsRow::BifrostAnalysis,
+                    SettingsRow::BifrostVersion,
+                    SettingsRow::ReviewTier,
+                    SettingsRow::CorrectionThreshold,
+                    SettingsRow::MaxCorrectionRounds,
+                ]
             }
             SettingsTab::Subagents => {
                 let mut rows = vec![SettingsRow::SubagentModel, SettingsRow::SubagentPermissions];
@@ -1052,74 +1037,14 @@ fn draw_reviewer(
     theme: TerminalTheme,
 ) {
     let rows = editor.settings_rows(SettingsTab::Reviewer);
-    let source = editor.selected_session_source(SessionDefaultsSeat::Review);
-    let has_options = rows.iter().any(|row| {
-        matches!(
-            row,
-            SettingsRow::ReviewPermissions | SettingsRow::SessionOption { .. }
-        )
-    });
     let mut lines = Vec::new();
     let mut selected_line_index = 0;
-    let mut session_options_heading_drawn = false;
     for (row_index, row) in rows.into_iter().enumerate() {
-        if matches!(
-            row,
-            SettingsRow::ReviewPermissions | SettingsRow::SessionOption { .. }
-        ) && !session_options_heading_drawn
-        {
-            lines.push(Line::raw(""));
-            lines.push(session_options_heading(editor, source.as_deref(), theme));
-            session_options_heading_drawn = true;
-        }
-        if has_options && matches!(row, SettingsRow::DiscreteReview) {
-            lines.push(Line::raw(""));
-        }
         let selected = editor.selected == row_index;
         if selected {
             selected_line_index = lines.len();
         }
         match row {
-            SettingsRow::ReviewModel => {
-                let model = &editor.config.review.model;
-                lines.extend(model_lines(
-                    selected,
-                    "Review model",
-                    model,
-                    1,
-                    editor,
-                    theme,
-                ));
-            }
-            SettingsRow::ReviewPermissions => {
-                lines.extend(permission_lines(
-                    selected,
-                    editor.config.review.permission,
-                    theme,
-                ));
-            }
-            SettingsRow::SessionOption {
-                server_index,
-                option_index,
-                ..
-            } => {
-                let server = &editor.inventory.servers[server_index];
-                let option = &server.session_config[option_index];
-                let saved =
-                    editor.saved_session_value(SessionDefaultsSeat::Review, &server.id, option);
-                let (saved_label, compatible) = session_option_value_label(option, &saved);
-                lines.push(selected_line(
-                    selected,
-                    format!("{} < {saved_label} >", option.name),
-                    theme,
-                ));
-                if !compatible {
-                    lines.push(Line::styled(
-                        format!("  unavailable on {}", server.id),
-                        Style::default().ink(theme.error),
-                    ));
-                }
-            }
             SettingsRow::DiscreteReview => lines.push(selected_line(
                 selected,
                 format!(
@@ -1276,6 +1201,7 @@ fn draw_reviewer(
             }
             SettingsRow::SubagentModel
             | SettingsRow::SubagentPermissions
+            | SettingsRow::SessionOption { .. }
             | SettingsRow::MaxParallelSubagents
             | SettingsRow::AutomaticQuotaFailover => {}
         }
@@ -1374,9 +1300,7 @@ fn draw_subagents(
                 ),
                 theme,
             )),
-            SettingsRow::ReviewModel
-            | SettingsRow::ReviewPermissions
-            | SettingsRow::DiscreteReview
+            SettingsRow::DiscreteReview
             | SettingsRow::McpDiscreteReview
             | SettingsRow::BifrostAnalysis
             | SettingsRow::BifrostVersion
@@ -2021,7 +1945,7 @@ mod tests {
     }
 
     #[test]
-    fn reviewer_panel_saves_seat_option() {
+    fn reviewer_panel_excludes_model_and_session_defaults() {
         let mut editor = SettingsEditor::new(
             crate::roster::config_with_a_visible_builtin(),
             Vec::new(),
@@ -2043,9 +1967,6 @@ mod tests {
             ],
         )];
         editor.config.review.acp_source = Some(server_id.clone());
-        editor.tab = SettingsTab::Reviewer;
-        editor.selected = 2;
-
         assert_eq!(
             editor
                 .session_option_rows(SessionDefaultsSeat::Review)
@@ -2056,11 +1977,15 @@ mod tests {
             session_option_choices(&editor.inventory.servers[0].session_config[0]).len(),
             2
         );
-        assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
-        assert_eq!(
-            editor.config.review.session_defaults[&server_id]["config:service_tier"],
-            "priority"
+        assert!(
+            editor
+                .settings_rows(SettingsTab::Reviewer)
+                .iter()
+                .all(|row| !matches!(row, SettingsRow::SessionOption { .. }))
         );
+        let reviewer = render(&editor, 100, 30);
+        assert!(!reviewer.contains("Review model"), "rendered:\n{reviewer}");
+        assert!(!reviewer.contains("Service tier"), "rendered:\n{reviewer}");
     }
 
     #[test]
@@ -2099,23 +2024,11 @@ mod tests {
         editor.config.review.acp_source = Some(server_id.clone());
         editor.config.subagents.acp_source = Some(server_id.clone());
 
-        editor.tab = SettingsTab::Reviewer;
-        assert_eq!(
+        assert!(
             editor
-                .session_option_rows(SessionDefaultsSeat::Review)
-                .len(),
-            4,
-            "review permissions owns the provider mode option"
-        );
-        for selected in 2..=5 {
-            editor.selected = selected;
-            assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
-        }
-        assert_eq!(editor.config.review.session_defaults[&server_id].len(), 4);
-        assert!(!editor.config.review.session_defaults[&server_id].contains_key("config:mode"));
-        assert_eq!(
-            editor.config.review.reasoning_effort.as_deref(),
-            Some("value")
+                .settings_rows(SettingsTab::Reviewer)
+                .iter()
+                .all(|row| !matches!(row, SettingsRow::SessionOption { .. }))
         );
 
         editor.tab = SettingsTab::Subagents;
@@ -2304,7 +2217,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_adapter_default_is_shown_until_a_scoped_value_is_chosen() {
+    fn reviewer_saved_values_inherit_legacy_adapter_defaults() {
         let mut editor = SettingsEditor::new(
             crate::roster::config_with_a_visible_builtin(),
             Vec::new(),
@@ -2339,13 +2252,6 @@ mod tests {
             "code"
         );
 
-        editor.tab = SettingsTab::Reviewer;
-        editor.selected = 2;
-        assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
-        assert_eq!(
-            editor.config.review.session_defaults[&server_id]["config:service_tier"],
-            "ask"
-        );
         assert_eq!(
             editor.config.session_config[&server_id].defaults["config:service_tier"],
             "code"
@@ -2353,7 +2259,7 @@ mod tests {
     }
 
     #[test]
-    fn stale_session_default_is_visible_and_cycles_to_an_advertised_value() {
+    fn stale_reviewer_session_default_is_visible() {
         let mut editor = SettingsEditor::new(
             crate::roster::config_with_a_visible_builtin(),
             Vec::new(),
@@ -2388,17 +2294,14 @@ mod tests {
             session_option_value_label(option, "removed"),
             ("removed (unavailable)".to_string(), false)
         );
-        editor.tab = SettingsTab::Reviewer;
-        editor.selected = 2;
-        assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
         assert_eq!(
             editor.config.review.session_defaults[&server_id]["config:service_tier"],
-            "ask"
+            "removed"
         );
     }
 
     #[test]
-    fn reviewer_panel_scrolls_dynamic_options_into_view_at_narrow_width() {
+    fn reviewer_panel_does_not_render_dynamic_session_options() {
         let mut editor = SettingsEditor::new(
             crate::roster::config_with_a_visible_builtin(),
             Vec::new(),
@@ -2425,7 +2328,6 @@ mod tests {
             .collect();
         editor.config.review.acp_source = Some(server_id);
         editor.tab = SettingsTab::Reviewer;
-        editor.selected = 13;
         let backend = ratatui::backend::TestBackend::new(48, 14);
         let mut terminal = ratatui::Terminal::new(backend).expect("terminal");
 
@@ -2435,8 +2337,8 @@ mod tests {
 
         let rendered = terminal.backend().to_string();
         assert!(
-            rendered.contains("Dynamic option 11"),
-            "selected row must remain visible:\n{rendered}"
+            !rendered.contains("Dynamic option"),
+            "rendered:\n{rendered}"
         );
     }
 
@@ -2696,19 +2598,8 @@ mod tests {
     }
 
     #[test]
-    fn reviewer_and_subagent_permissions_are_configured_independently() {
+    fn subagent_permissions_remain_configurable_in_the_panel() {
         let mut editor = SettingsEditor::new(Config::default(), Vec::new(), None);
-        editor.tab = SettingsTab::Reviewer;
-        editor.selected = editor
-            .settings_rows(SettingsTab::Reviewer)
-            .iter()
-            .position(|row| *row == SettingsRow::ReviewPermissions)
-            .expect("review permissions row");
-        assert_eq!(editor.config.review.permission, PermissionPreset::Auto);
-        assert_eq!(editor.handle_key(KeyCode::Left), SettingsAction::Changed);
-        assert_eq!(editor.config.review.permission, PermissionPreset::Manual);
-        assert_eq!(editor.config.subagents.permission, PermissionPreset::Auto);
-
         editor.tab = SettingsTab::Subagents;
         editor.selected = editor
             .settings_rows(SettingsTab::Subagents)
@@ -2717,7 +2608,7 @@ mod tests {
             .expect("subagent permissions row");
         assert_eq!(editor.handle_key(KeyCode::Right), SettingsAction::Changed);
         assert_eq!(editor.config.subagents.permission, PermissionPreset::Yolo);
-        assert_eq!(editor.config.review.permission, PermissionPreset::Manual);
+        assert_eq!(editor.config.review.permission, PermissionPreset::Auto);
     }
 
     #[test]
@@ -2963,15 +2854,13 @@ mod tests {
 
         editor.tab = SettingsTab::Reviewer;
         let reviewer = render(&editor, 100, 30);
-        assert!(reviewer.contains("Review model"), "rendered:\n{reviewer}");
-        let reviewer_session_options = reviewer
-            .find("Session options ·")
-            .expect("reviewer session-options heading");
-        let reviewer_permissions = reviewer
-            .find("Permissions < Auto >")
-            .expect("reviewer permissions");
+        assert!(!reviewer.contains("Review model"), "rendered:\n{reviewer}");
         assert!(
-            reviewer_session_options < reviewer_permissions,
+            !reviewer.contains("Session options ·"),
+            "rendered:\n{reviewer}"
+        );
+        assert!(
+            !reviewer.contains("Permissions < Auto >"),
             "rendered:\n{reviewer}"
         );
         assert!(
@@ -3052,7 +2941,7 @@ mod tests {
     }
 
     #[test]
-    fn reviewer_panel_keeps_mode_under_the_permissions_control() {
+    fn reviewer_panel_keeps_only_review_policy_controls() {
         let mut editor = SettingsEditor::new(
             crate::roster::config_with_a_visible_builtin(),
             Vec::new(),
@@ -3090,11 +2979,7 @@ mod tests {
         let reviewer = render(&editor, 100, 30);
 
         assert!(
-            reviewer.contains("Session options ·"),
-            "rendered:\n{reviewer}"
-        );
-        assert!(
-            reviewer.contains("Permissions < Auto >"),
+            !reviewer.contains("Permissions < Auto >"),
             "rendered:\n{reviewer}"
         );
         assert!(
@@ -3102,24 +2987,7 @@ mod tests {
             "rendered:\n{reviewer}"
         );
         assert!(
-            reviewer.contains("Reasoning effort < High >"),
-            "rendered:\n{reviewer}"
-        );
-        let heading = reviewer.find("Session options ·").expect("heading");
-        let permissions = reviewer.find("Permissions < Auto >").expect("permissions");
-        let reasoning = reviewer
-            .find("Reasoning effort < High >")
-            .expect("reasoning effort");
-        assert!(
-            heading < permissions && permissions < reasoning,
-            "rendered:\n{reviewer}"
-        );
-        assert!(
-            reviewer.contains("active: active-review-model via"),
-            "rendered:\n{reviewer}"
-        );
-        assert!(
-            reviewer.contains("not reported this session"),
+            !reviewer.contains("Reasoning effort < High >"),
             "rendered:\n{reviewer}"
         );
         for noise in [

@@ -27,6 +27,9 @@ pub const ADVERSARIAL_REVIEW_COMMAND: &str = "adversarial-review";
 pub const TERMINALS_COMMAND: &str = "terminals";
 pub const MEMORY_COMMAND: &str = "memory";
 pub const EXIT_COMMAND: &str = "exit";
+/// Prefix reserved for the review-route configuration commands generated from
+/// the selected review ACP server's advertised options.
+pub const REVIEWER_COMMAND_PREFIX: &str = "reviewer-";
 /// Retired command name kept reserved so an agent command cannot shadow the
 /// "this was renamed" notice.
 pub const RETIRED_REVIEW_COMMAND: &str = "review";
@@ -183,6 +186,7 @@ pub fn tui_only_command(name: &str) -> Option<&'static SurfaceCommand> {
 /// `review` name. Agent commands with these names are filtered out.
 pub fn is_tui_builtin(name: &str) -> bool {
     name == RETIRED_REVIEW_COMMAND
+        || is_generated_reviewer_command(name)
         || shared_command(name).is_some()
         || tui_only_command(name).is_some()
 }
@@ -195,6 +199,39 @@ pub fn is_web_builtin(name: &str) -> bool {
         || name == EXIT_COMMAND
         || shared_command(name).is_some()
         || WEB_ONLY_COMMANDS.iter().any(|command| command.name == name)
+}
+
+/// Whether `name` belongs to the generated review-route command namespace.
+///
+/// Terminal ACP command catalogs cannot claim these names: the available
+/// review options decide which commands appear, and a stale agent-provided
+/// command would otherwise be forwarded as a prompt after the route changes.
+pub fn is_generated_reviewer_command(name: &str) -> bool {
+    name.starts_with(REVIEWER_COMMAND_PREFIX)
+}
+
+/// Derive a stable slash-command name for one reviewer ACP option id.
+///
+/// ACP ids are not constrained to shell-style names. Keep the command palette
+/// predictable by lowercasing ASCII letters, collapsing punctuation into one
+/// hyphen, and retaining a usable fallback for an otherwise empty id.
+pub fn reviewer_option_command_name(config_id: &str) -> String {
+    let mut slug = String::new();
+    let mut previous_was_separator = false;
+    for ch in config_id.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !slug.is_empty() && !previous_was_separator {
+            slug.push('-');
+            previous_was_separator = true;
+        }
+    }
+    let slug = slug.trim_end_matches('-');
+    format!(
+        "{REVIEWER_COMMAND_PREFIX}{}",
+        if slug.is_empty() { "option" } else { slug }
+    )
 }
 
 #[cfg(test)]
@@ -213,5 +250,17 @@ mod tests {
             assert!(seen.insert(name), "duplicate builtin command name {name}");
             assert_ne!(name, RETIRED_REVIEW_COMMAND);
         }
+    }
+
+    #[test]
+    fn reviewer_option_commands_are_stable_and_reserved() {
+        assert_eq!(
+            reviewer_option_command_name("service_tier"),
+            "reviewer-service-tier"
+        );
+        assert_eq!(reviewer_option_command_name("  Mode!! "), "reviewer-mode");
+        assert_eq!(reviewer_option_command_name("---"), "reviewer-option");
+        assert!(is_tui_builtin("reviewer-mode"));
+        assert!(!is_web_builtin("reviewer-service-tier"));
     }
 }

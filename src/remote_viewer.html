@@ -4029,10 +4029,6 @@
 
       function renderMjReviewer() {
         const panel = mjcfg.snapshot.agents;
-        mjconfigBodyEl.appendChild(mjRoleModelRow(panel.roles[1], "review_model"));
-        for (const row of mjSeatOptionRows(mjcfg.snapshot.review_options, "review_session_defaults", "review")) {
-          mjconfigBodyEl.appendChild(row);
-        }
         const reviewRow = mjRow("Discrete review");
         reviewRow.appendChild(
           mjToggle(mjEditedValue("discrete_review", panel.discrete_review), (next) => {

@@ -45,13 +45,13 @@ use tokio_util::sync::CancellationToken;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::app::{
-    AppState, AutocompleteKind, ConfigValueChoice, ConnectionState, CurrentBranchPullRequest,
-    ElicitationFormFieldKind, ElicitationView, Entry, FileAttachment, PastedAttachment,
-    PastedImageAttachment, PendingElicitation, PendingPermission, QUEUED_PROMPT_PREVIEW_WIDTH,
-    QueuedPrompt, StatusKind, StatusMessage, SubagentStatus, TeamPicker, TeamPickerStep,
-    ToolCallOutput, TranscriptSearch, TranscriptSelection, UiExitReason, WorkspaceFile,
-    classify_elicitation, config_option_choices, config_option_current_value_label,
-    file_mention_text, workspace_file_candidates,
+    AppState, AutocompleteKind, ConfigPickerSelection, ConfigPickerTarget, ConfigValueChoice,
+    ConnectionState, CurrentBranchPullRequest, ElicitationFormFieldKind, ElicitationView, Entry,
+    FileAttachment, PastedAttachment, PastedImageAttachment, PendingElicitation, PendingPermission,
+    QUEUED_PROMPT_PREVIEW_WIDTH, QueuedPrompt, StatusKind, StatusMessage, SubagentStatus,
+    TeamPicker, TeamPickerStep, ToolCallOutput, TranscriptSearch, TranscriptSelection,
+    UiExitReason, WorkspaceFile, classify_elicitation, file_mention_text,
+    workspace_file_candidates,
 };
 use crate::clipboard::{
     ClipboardImage, copy_to_clipboard, load_image_path_as_png, read_clipboard_image_as_png,
@@ -1013,6 +1013,7 @@ pub struct UiRunOptions<'a> {
     pub runtime_stall_minutes: u64,
     pub primary_acp_name: String,
     pub primary_reasoning_effort: Option<String>,
+    pub review_reasoning_effort: Option<String>,
     pub termination: CancellationToken,
 }
 
@@ -1053,6 +1054,7 @@ struct UiInitialState {
     runtime_stall_minutes: u64,
     primary_acp_name: String,
     primary_reasoning_effort: Option<String>,
+    review_reasoning_effort: Option<String>,
 }
 
 /// Internal result of [`ui_loop`]. `run` unpacks it into the public
@@ -1139,6 +1141,7 @@ pub async fn run(
             runtime_stall_minutes: options.runtime_stall_minutes,
             primary_acp_name: options.primary_acp_name,
             primary_reasoning_effort: options.primary_reasoning_effort,
+            review_reasoning_effort: options.review_reasoning_effort,
         },
         options.termination,
     )
@@ -1392,6 +1395,7 @@ async fn ui_loop(
     state.set_primary_acp_name(initial.primary_acp_name);
     state.primary_route_reasoning_effort = initial.primary_reasoning_effort.clone();
     state.primary_reasoning_effort = initial.primary_reasoning_effort;
+    state.review_reasoning_effort = initial.review_reasoning_effort;
     state.transcript_export_dir = initial.transcript_export_dir;
     state.set_spinner_style(initial.spinner_style);
     state.set_thought_output(initial.thought_output);
@@ -1399,6 +1403,7 @@ async fn ui_loop(
     state.feature_hints_enabled = initial.feature_hints_enabled;
     state.keep_awake.set_enabled(initial.keep_awake_enabled);
     state.config_path = initial.config_path;
+    state.refresh_reviewer_config_commands();
     if let Some(boundary) = initial.session_boundary {
         state.push_session_boundary(boundary);
     }
@@ -4355,6 +4360,20 @@ fn submit_prompt(state: &mut AppState, cmd_tx: &mpsc::UnboundedSender<UiCommand>
         return;
     }
 
+    if plain_text_only
+        && text.starts_with(&format!(
+            "/{}",
+            mj_core::builtin_commands::REVIEWER_COMMAND_PREFIX
+        ))
+        && state.open_reviewer_config_picker(&text)
+    {
+        state.input.clear();
+        clear_attachments(state);
+        state.input_cursor = 0;
+        state.scroll_input_to_bottom();
+        return;
+    }
+
     if plain_text_only && text == "/diff" {
         state.input.clear();
         clear_attachments(state);
@@ -5085,6 +5104,7 @@ fn adopt_live_config(
 ) {
     state.configured_models = config.model_names();
     state.acp_inventory = crate::roster::rediscover_inventory(config, &state.acp_inventory);
+    state.refresh_reviewer_config_commands();
     state.review_enabled = config.agent.discrete_review;
     state.review_tier = config.agent.review_tier;
     state.correction_threshold = config.agent.correction_threshold;
@@ -6469,9 +6489,28 @@ fn handle_config_picker_key(
             TerminalRequest::None
         }
         PickerKeyAction::Accept => {
-            if let Some((target, value)) = state.config_picker_accept() {
-                state.status_line = Some(StatusMessage::info("updating config..."));
-                let _ = cmd_tx.send(UiCommand::SetSessionConfigOption { target, value });
+            if let Some(selection) = state.config_picker_accept() {
+                match selection {
+                    ConfigPickerSelection::Live { target, value } => {
+                        state.status_line = Some(StatusMessage::info("updating config..."));
+                        let _ = cmd_tx.send(UiCommand::SetSessionConfigOption { target, value });
+                    }
+                    ConfigPickerSelection::Reviewer { target, value } => {
+                        match state.save_reviewer_config_selection(*target, value) {
+                            Ok(()) => {
+                                let _ = cmd_tx.send(UiCommand::ReloadAuxiliaryAgents);
+                                state.status_line = Some(StatusMessage::info(
+                                    "reviewer configuration saved; future reviews use it",
+                                ));
+                            }
+                            Err(error) => {
+                                state.status_line = Some(StatusMessage::warning(format!(
+                                    "reviewer configuration save failed: {error}"
+                                )))
+                            }
+                        }
+                    }
+                }
                 TerminalRequest::None
             } else {
                 TerminalRequest::None
@@ -6870,11 +6909,22 @@ fn team_picker_items(state: &AppState, width: u16) -> Vec<ListItem<'static>> {
         .collect()
 }
 
-fn session_config_picker_scope_notice(state: &AppState) -> &'static str {
-    if state.config_path.is_some() {
-        "Saved for future sessions on this ACP model route; applied after /mjconfig defaults."
-    } else {
-        "Current-session only: configuration is unavailable, so this selection cannot be saved."
+fn session_config_picker_scope_notice(
+    state: &AppState,
+    target: &ConfigPickerTarget,
+) -> &'static str {
+    match target {
+        ConfigPickerTarget::Live(_) if state.config_path.is_some() => {
+            "Saved for future sessions on this ACP model route; applied after /mjconfig defaults."
+        }
+        ConfigPickerTarget::Live(_) => {
+            "Current-session only: configuration is unavailable, so this selection cannot be saved."
+        }
+        ConfigPickerTarget::ReviewerModel { .. }
+        | ConfigPickerTarget::ReviewerMode { .. }
+        | ConfigPickerTarget::ReviewerOption { .. } => {
+            "Saved for future reviewer sessions; any active review keeps its current settings."
+        }
     }
 }
 
@@ -7901,6 +7951,33 @@ fn primary_model_display(state: &AppState) -> String {
     }
 }
 
+/// Display the review route when this UI run has one. A disabled or unresolved
+/// reviewer should not consume status-line space with a meaningless label.
+fn review_model_display(state: &AppState) -> Option<&str> {
+    let model = state.active_models.review.trim();
+    (!model.is_empty() && !matches!(model, "auto" | "off" | "none" | "disabled")).then_some(model)
+}
+
+fn model_routes_display(state: &AppState) -> String {
+    let primary = format!(
+        "{}/{}",
+        primary_model_display(state),
+        state
+            .primary_reasoning_effort
+            .as_deref()
+            .unwrap_or("default")
+    );
+    review_model_display(state).map_or(primary.clone(), |review| {
+        format!(
+            "{primary} vs {review}/{}",
+            state
+                .review_reasoning_effort
+                .as_deref()
+                .unwrap_or("default")
+        )
+    })
+}
+
 fn status_line(state: &AppState, width: usize) -> Line<'static> {
     if width == 0 {
         return Line::default();
@@ -7929,19 +8006,14 @@ fn status_line(state: &AppState, width: usize) -> Line<'static> {
         ));
     }
 
-    let model_name = primary_model_display(state);
-    let effort = state
-        .primary_reasoning_effort
-        .as_deref()
-        .unwrap_or("default");
+    let model_routes = model_routes_display(state);
     let project = state.project_label.trim();
     let primary = compact_status_count(state.agent_usage.primary.total_tokens);
     let review = compact_status_count(state.agent_usage.review.total_tokens);
     let primary_field = format!("primary: {primary}");
     let review_field = format!("review: {review}");
     let mut full_fields = vec![
-        (model_name.to_string(), state.theme.primary),
-        (format!("effort: {effort}"), state.theme.warning),
+        (model_routes.clone(), state.theme.primary),
         (project.to_string(), state.theme.secondary),
         (primary_field.clone(), state.theme.success),
         (review_field.clone(), state.theme.error),
@@ -7956,8 +8028,7 @@ fn status_line(state: &AppState, width: usize) -> Line<'static> {
     // Preserve every requested field at common terminal widths by assigning
     // the remaining space to the path.
     let mut medium_fields = vec![
-        (model_name.to_string(), state.theme.primary),
-        (format!("effort: {effort}"), state.theme.warning),
+        (model_routes.clone(), state.theme.primary),
         (String::new(), state.theme.secondary),
         (primary_field.clone(), state.theme.success),
         (review_field.clone(), state.theme.error),
@@ -7974,8 +8045,7 @@ fn status_line(state: &AppState, width: usize) -> Line<'static> {
     }
 
     let mut narrow_fields = vec![
-        (model_name.to_string(), state.theme.primary),
-        (effort.to_string(), state.theme.warning),
+        (model_routes.clone(), state.theme.primary),
         (
             project.rsplit('/').next().unwrap_or(project).to_string(),
             state.theme.secondary,
@@ -8000,7 +8070,7 @@ fn status_line(state: &AppState, width: usize) -> Line<'static> {
             return status_line_from_fields(
                 vec![
                     (
-                        compact_middle_display(&model_name, model_width),
+                        compact_middle_display(&model_routes, model_width),
                         state.theme.primary,
                     ),
                     (pr, state.theme.accent),
@@ -8016,7 +8086,7 @@ fn status_line(state: &AppState, width: usize) -> Line<'static> {
 
     status_line_from_fields(
         vec![(
-            compact_middle_display(&model_name, width),
+            compact_middle_display(&model_routes, width),
             state.theme.primary,
         )],
         state.theme.muted,
@@ -13915,18 +13985,20 @@ fn draw_config_value_picker_modal(f: &mut ratatui::Frame, area: Rect, state: &Ap
         return;
     };
 
-    let Some(option) = state.session_config_options.get(picker.selected_option) else {
-        return;
-    };
-    let Some(choices) = config_option_choices(option) else {
-        return;
-    };
-    let title = format!(" {} values ", option.name);
-    let detail = option
-        .description
-        .clone()
-        .unwrap_or_else(|| config_option_current_value_label(option));
-    let legend = model_score_legend(state, option);
+    let choices = &picker.choices;
+    let title = format!(" {} values ", picker.option_name);
+    let detail = picker.option_description.clone().unwrap_or_else(|| {
+        picker
+            .choices
+            .iter()
+            .find(|choice| choice.value == picker.current_value)
+            .map(|choice| choice.name.clone())
+            .unwrap_or_else(|| picker.current_value.to_string())
+    });
+    let legend = picker
+        .model_score_option
+        .as_ref()
+        .and_then(|option| model_score_legend(state, option));
     let total = picker.filtered_indices.len();
     let selected = picker.selected_value;
     let rows = 8u16;
@@ -13960,9 +14032,12 @@ fn draw_config_value_picker_modal(f: &mut ratatui::Frame, area: Rect, state: &Ap
         );
     }
     header_lines.extend(
-        wrap_text_to_width(session_config_picker_scope_notice(state), inner_width)
-            .into_iter()
-            .map(|line| Line::from(Span::styled(line, Style::default().ink(state.theme.muted)))),
+        wrap_text_to_width(
+            session_config_picker_scope_notice(state, &picker.target),
+            inner_width,
+        )
+        .into_iter()
+        .map(|line| Line::from(Span::styled(line, Style::default().ink(state.theme.muted)))),
     );
     header_lines.extend(
         wrap_text_to_width("Enter to apply | Esc cancel", inner_width)
@@ -14034,7 +14109,10 @@ fn draw_config_value_picker_modal(f: &mut ratatui::Frame, area: Rect, state: &Ap
             let absolute = start + offset;
             let marker = if absolute == selected { ">" } else { " " };
             let choice = &choices[full_idx];
-            let score = model_choice_score(state, option, choice);
+            let score = picker
+                .model_score_option
+                .as_ref()
+                .and_then(|option| model_choice_score(state, option, choice));
             let line = config_value_row_text(choice, score.as_deref(), layout[2].width);
             truncate_line(line, layout[2].width, marker == ">", state.theme)
         })
@@ -15226,11 +15304,14 @@ mod tests {
     }
 
     #[test]
-    fn status_line_shows_requested_fields_in_distinct_colors() {
+    fn status_line_shows_primary_and_reviewer_routes_in_distinct_colors() {
         let mut state = AppState::new();
-        state.active_models.primary = "gpt-5-6-terra".to_string();
+        state.active_models.primary = "gpt-5-6-sol".to_string();
         state.active_models.primary_source = Some("codex-acp".to_string());
-        state.primary_reasoning_effort = Some("high".to_string());
+        state.primary_reasoning_effort = Some("xhigh".to_string());
+        state.active_models.review = "claude-opus-5".to_string();
+        state.active_models.review_source = Some("claude-acp".to_string());
+        state.review_reasoning_effort = Some("high".to_string());
         state.project_label = "~/code/belgr/.belgr/worktrees/slim-hawk".to_string();
         state.agent_usage.primary.total_tokens = 68_000;
         state.agent_usage.review.total_tokens = 311_000;
@@ -15242,7 +15323,7 @@ mod tests {
         let line = status_line(&state, 200);
         assert_eq!(
             line_text(&line),
-            "gpt-5-6-terra · effort: high · ~/code/belgr/.belgr/worktrees/slim-hawk · primary: 68k · review: 311k · PR #487"
+            "gpt-5-6-sol/xhigh vs claude-opus-5/high · ~/code/belgr/.belgr/worktrees/slim-hawk · primary: 68k · review: 311k · PR #487"
         );
         assert!(!line_text(&line).contains("github.com"));
         // Compare whole styles rather than bare colors: hierarchy now lives
@@ -15258,7 +15339,6 @@ mod tests {
             field_styles,
             vec![
                 state.theme.primary.style(),
-                state.theme.warning.style(),
                 state.theme.secondary.style(),
                 state.theme.success.style(),
                 state.theme.error.style(),
@@ -15301,8 +15381,9 @@ mod tests {
         });
 
         let rendered = line_text(&status_line(&state, 120));
-        assert!(rendered.contains("effort: xhigh"), "{rendered}");
-        assert!(!rendered.contains("effort: default"), "{rendered}");
+        assert!(rendered.contains("gpt-5-6-sol/xhigh"), "{rendered}");
+        assert!(!rendered.contains("effort:"), "{rendered}");
+        assert!(!rendered.contains("gpt-5-6-sol/default"), "{rendered}");
     }
 
     #[test]
@@ -17806,6 +17887,88 @@ mod tests {
     }
 
     #[test]
+    fn reviewer_slash_commands_are_generated_and_persist_route_defaults() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("config.toml");
+        let mut config = crate::roster::config_with_a_visible_builtin();
+        config.review.model = "reviewer-a".to_string();
+        config::save_user_config(&path, &config).expect("save config");
+
+        let mut state = AppState::new();
+        state.config_path = Some(path.clone());
+        state.acp_inventory = crate::roster::discover_inventory(&config);
+        let server = state
+            .acp_inventory
+            .servers
+            .first_mut()
+            .expect("visible ACP server");
+        let source_id = server.id.clone();
+        server.session_config = vec![
+            SessionConfigOption::select(
+                "mode",
+                "Mode",
+                "default",
+                vec![SessionConfigSelectOption::new("default", "Default")],
+            ),
+            SessionConfigOption::select(
+                crate::acp::REASONING_EFFORT_CONFIG_ID,
+                "Reasoning effort",
+                "medium",
+                vec![
+                    SessionConfigSelectOption::new("medium", "Medium"),
+                    SessionConfigSelectOption::new("high", "High"),
+                ],
+            )
+            .category(SessionConfigOptionCategory::ThoughtLevel),
+            SessionConfigOption::select(
+                "service_tier",
+                "Service tier",
+                "default",
+                vec![
+                    SessionConfigSelectOption::new("default", "Default"),
+                    SessionConfigSelectOption::new("priority", "Priority"),
+                ],
+            ),
+        ];
+        state.model_choices = vec![model_choice("reviewer-a", 0.5, &source_id)];
+        state.refresh_reviewer_config_commands();
+
+        let names = state
+            .available_commands
+            .iter()
+            .map(|command| command.name.as_str())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"reviewer-model"));
+        assert!(names.contains(&"reviewer-mode"));
+        assert!(names.contains(&"reviewer-effort"));
+        assert!(names.contains(&"reviewer-service-tier"));
+
+        state.input = "/reviewer-service-tier".to_string();
+        let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<UiCommand>();
+        submit_prompt(&mut state, &cmd_tx);
+        assert_eq!(
+            state
+                .config_picker
+                .as_ref()
+                .map(|picker| picker.option_name.as_str()),
+            Some("Service tier")
+        );
+
+        state.config_picker_move(1);
+        handle_crossterm(&mut state, &cmd_tx, key(KeyCode::Enter));
+
+        assert!(matches!(
+            cmd_rx.try_recv(),
+            Ok(UiCommand::ReloadAuxiliaryAgents)
+        ));
+        let saved = config::Config::load(&path).expect("load saved config");
+        assert_eq!(
+            saved.review.session_defaults[&source_id]["config:service_tier"],
+            "priority"
+        );
+    }
+
+    #[test]
     fn slash_diff_opens_workspace_viewer_without_queueing_while_busy() {
         let mut state = AppState::new();
         state.record_user_prompt("active".to_string());
@@ -18100,15 +18263,13 @@ mod tests {
         let editor = &mut state.mjconfig_menu.as_mut().expect("menu").editor;
         editor.tab = crate::settings::SettingsTab::Reviewer;
         editor.selected = 0;
-        state.mjconfig_menu_key(KeyCode::Down);
-        state.mjconfig_menu_key(KeyCode::Down);
         state.mjconfig_menu_key(KeyCode::Char(' '));
         state.mjconfig_menu_key(KeyCode::Down);
         state.mjconfig_menu_key(KeyCode::Char(' '));
         state.mjconfig_menu_key(KeyCode::Down);
         state.mjconfig_menu_key(KeyCode::Char(' '));
+        state.mjconfig_menu_key(KeyCode::Down);
         // Skip the Bifrost version row; this test changes review policy only.
-        state.mjconfig_menu_key(KeyCode::Down);
         state.mjconfig_menu_key(KeyCode::Down);
         state.mjconfig_menu_key(KeyCode::Right);
         state.mjconfig_menu_key(KeyCode::Down);

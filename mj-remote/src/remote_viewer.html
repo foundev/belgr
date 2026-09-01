@@ -4481,23 +4481,6 @@
 
       function renderMjReviewer() {
         const panel = mjcfg.snapshot.agents;
-        const role = panel.roles[1];
-        mjconfigBodyEl.appendChild(mjRoleModelRow(role, "review_model", "review"));
-        const permissionRow = mjRolePermissionRow(role, "review_permission");
-        const options = mjSeatOptionGroup(
-          role,
-          "review_model",
-          "review",
-          mjcfg.snapshot.review_options,
-        );
-        for (const row of mjSeatOptionRows(
-          options,
-          "review_session_defaults",
-          "review",
-          permissionRow ? [permissionRow] : [],
-        )) {
-          mjconfigBodyEl.appendChild(row);
-        }
         const reviewRow = mjRow("Discrete review");
         reviewRow.appendChild(
           mjToggle(mjEditedValue("discrete_review", mjStagedTeamPreset()?.discrete_review ?? panel.discrete_review), (next) => {

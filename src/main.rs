@@ -3164,6 +3164,10 @@ async fn run_session(
                 runtime_stall_minutes: ui_config.agent.runtime_stall_minutes,
                 primary_acp_name: roster.primary.launch.kind.display_name().to_string(),
                 primary_reasoning_effort: roster.primary.reasoning_effort.clone(),
+                review_reasoning_effort: roster
+                    .review_supervisor
+                    .as_ref()
+                    .and_then(|role| role.reasoning_effort.clone()),
                 termination: termination.clone(),
             },
         )

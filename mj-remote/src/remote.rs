@@ -13002,16 +13002,18 @@ if (permissionsEl.children.length !== 0 || permissionCards.size !== 0) {
     }
 
     #[test]
-    fn embedded_viewer_contains_role_scoped_acp_session_controls() {
+    fn embedded_viewer_limits_acp_session_controls_to_primary_and_subagents() {
         let viewer = include_str!("remote_viewer.html");
         assert!(viewer.contains("mjcfg.snapshot?.tabs || []"));
         assert!(viewer.contains("case \"input\":"));
         assert!(!viewer.contains("snapshot.primary_options"));
-        assert!(viewer.contains("snapshot.review_options"));
+        assert!(!viewer.contains("snapshot.review_options"));
         assert!(viewer.contains("snapshot.subagent_options"));
         assert!(viewer.contains("snapshot?.session_options?.[seat]"));
         assert!(viewer.contains("choice.model === model)?.source"));
-        assert!(viewer.contains("review_session_defaults"));
+        assert!(!viewer.contains("review_session_defaults"));
+        assert!(!viewer.contains("review_model"));
+        assert!(!viewer.contains("review_permission"));
         assert!(viewer.contains("value !== role.active_model"));
         assert!(viewer.contains("role.model_warning"));
         assert!(viewer.contains("is unavailable on ${group.server_id}"));
@@ -13041,7 +13043,7 @@ if (permissionsEl.children.length !== 0 || permissionCards.size !== 0) {
         assert!(viewer.contains("mjStagedTeamPreset()?.auto_failover ?? panel.auto_failover"));
         assert!(viewer.contains("function renderMjInput()"));
         assert!(viewer.contains("function mjRolePermissionRow(role, field)"));
-        assert!(viewer.contains("review_permission"));
+        assert!(!viewer.contains("review_permission"));
         assert!(viewer.contains("subagents_permission"));
         let session_options_title = viewer
             .find("rows.push(mjSectionTitle(`${group.server_label} session options`));")

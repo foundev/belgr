@@ -78,13 +78,13 @@ and keeps Bifrost navigation tools attached to reviewers; the review packet
 uses a bounded raw Git patch and raw file/line totals instead. The setting is
 stored as `bifrost_analysis = false` under `[agent]`.
 
-The Reviewer tab has an independent **Permissions** setting. Its default,
-`Auto`, starts Codex with its native **Approve for me** policy and Claude Code
-with its native Auto policy; Mjolnir does not auto-answer approval requests.
-Other selected-provider session options remain separately available. The
-**Permissions** setting owns the provider's **Mode** option for reviewer
-sessions, so any older saved Mode value is ignored. Mjolnir-hosted ACP
-filesystem and terminal capabilities stay read-only for review sessions.
+Use `/reviewer-mode` to select the review session's provider permission mode.
+Its default, `Auto`, starts Codex with its native **Approve for me** policy and
+Claude Code with its native Auto policy; Mjolnir does not auto-answer approval
+requests. `/reviewer-model`, `/reviewer-effort`, and generated
+`/reviewer-<option-id>` pickers configure the rest of the reviewer route and
+its selected-provider session defaults. Mjolnir-hosted ACP filesystem and
+terminal capabilities stay read-only for review sessions.
 
 ### Quick tier (default)
 

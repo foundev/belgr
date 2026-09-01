@@ -1315,6 +1315,10 @@ pub struct AppState {
     /// Effective reasoning effort reported by the active ACP session. `None`
     /// means the adapter exposes no selected effort.
     pub primary_reasoning_effort: Option<String>,
+    /// Reasoning effort bound to review sessions launched by this UI run.
+    /// Reviewer ACP sessions do not publish live configuration updates back to
+    /// the primary UI.
+    pub review_reasoning_effort: Option<String>,
     /// Score catalog for this UI run. It may be populated asynchronously after
     /// startup; render code reads through this explicit state rather than a
     /// process-global catalog.
@@ -1904,14 +1908,68 @@ pub struct TeamPicker {
 /// Config option picker overlay state.
 #[derive(Debug, Clone)]
 pub struct ConfigPicker {
+    /// Retained for F-key/live-selector tests and refresh bookkeeping. Saved
+    /// reviewer settings use zero because they are not part of the primary
+    /// session's option vector.
     pub selected_option: usize,
     pub selected_value: usize,
+    pub option_name: String,
+    pub option_description: Option<String>,
+    pub choices: Vec<ConfigValueChoice>,
+    pub current_value: SessionConfigValueId,
+    pub model_score_option: Option<SessionConfigOption>,
+    pub(crate) target: ConfigPickerTarget,
     /// Search query to filter choices. Empty means show all.
     pub search_query: String,
     /// Indices into the full `choices` vec that match `search_query`.
     /// Always non-empty when `search_query` is non-empty (falls back to
     /// full list if no match).
     pub filtered_indices: Vec<usize>,
+}
+
+/// Where a config-picker selection is committed.
+#[derive(Debug, Clone)]
+pub enum ConfigPickerTarget {
+    Live(SessionConfigTarget),
+    ReviewerModel {
+        config: crate::config::Config,
+    },
+    ReviewerMode {
+        config: crate::config::Config,
+    },
+    ReviewerOption {
+        config: crate::config::Config,
+        source_id: String,
+        option_id: String,
+        controls_reasoning_effort: bool,
+    },
+}
+
+/// One accepted picker value, ready for the UI loop to apply or persist.
+#[derive(Debug, Clone)]
+pub enum ConfigPickerSelection {
+    Live {
+        target: SessionConfigTarget,
+        value: SessionConfigValueId,
+    },
+    Reviewer {
+        target: Box<ConfigPickerTarget>,
+        value: String,
+    },
+}
+
+/// One slash command generated from the saved reviewer route and its ACP
+/// option catalog. The picker keeps the config snapshot it was derived from,
+/// matching `/mjconfig`'s staged-save behavior.
+#[derive(Debug, Clone)]
+struct ReviewerConfigCommand {
+    name: String,
+    description: String,
+    option_name: String,
+    option_description: Option<String>,
+    choices: Vec<ConfigValueChoice>,
+    current_value: SessionConfigValueId,
+    target: ConfigPickerTarget,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -2179,6 +2237,7 @@ impl AppState {
             agent_source_id: String::new(),
             primary_route_reasoning_effort: None,
             primary_reasoning_effort: None,
+            review_reasoning_effort: None,
             session: SessionState::new(now, {
                 let mut commands = Vec::new();
                 install_builtin_commands(&mut commands, false, false);
@@ -2309,6 +2368,7 @@ impl AppState {
         side.agent_source_id = self.agent_source_id.clone();
         side.primary_route_reasoning_effort = self.primary_route_reasoning_effort.clone();
         side.primary_reasoning_effort = self.primary_reasoning_effort.clone();
+        side.review_reasoning_effort = self.review_reasoning_effort.clone();
         side.runtime_stall_threshold = self.runtime_stall_threshold;
         side.current_branch_pull_request = self.current_branch_pull_request.clone();
         side.current_branch_pull_request_branch = self.current_branch_pull_request_branch.clone();
@@ -3968,28 +4028,319 @@ impl AppState {
         let Some(option) = self.session_config_options.get(option_index) else {
             return false;
         };
-        let Some(choices) = config_option_choices(option) else {
-            return false;
-        };
+        let target = self
+            .session_config_targets
+            .get(option_index)
+            .cloned()
+            .unwrap_or_else(|| SessionConfigTarget::ConfigOption {
+                config_id: option.id.clone(),
+            });
+        self.open_config_picker(
+            option_index,
+            option.name.clone(),
+            option.description.clone(),
+            config_option_choices(option).unwrap_or_default(),
+            config_option_current_value_id(option).cloned(),
+            Some(option.clone()),
+            ConfigPickerTarget::Live(target),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn open_config_picker(
+        &mut self,
+        selected_option: usize,
+        option_name: String,
+        option_description: Option<String>,
+        choices: Vec<ConfigValueChoice>,
+        current_value: Option<SessionConfigValueId>,
+        model_score_option: Option<SessionConfigOption>,
+        target: ConfigPickerTarget,
+    ) -> bool {
         if choices.is_empty() {
             self.record_status_message(
                 StatusKind::Warning,
-                format!("config option '{}' has no values", option.name),
+                format!("config option '{option_name}' has no values"),
             );
             return false;
         }
-        let current = config_option_current_value_id(option)
-            .and_then(|value| choices.iter().position(|choice| &choice.value == value))
+        let current_value = current_value.unwrap_or_else(|| choices[0].value.clone());
+        let selected_value = choices
+            .iter()
+            .position(|choice| choice.value == current_value)
             .unwrap_or(0);
-        let all_indices: Vec<usize> = (0..choices.len()).collect();
         self.config_picker = Some(ConfigPicker {
-            selected_option: option_index,
-            selected_value: current,
+            selected_option,
+            selected_value,
+            option_name,
+            option_description,
+            choices: choices.clone(),
+            current_value,
+            model_score_option,
+            target,
             search_query: String::new(),
-            filtered_indices: all_indices,
+            filtered_indices: (0..choices.len()).collect(),
         });
         self.autocomplete = Autocomplete::default();
         true
+    }
+
+    /// Rebuild the generated reviewer command portion of the palette. The
+    /// options are route-dependent, so a review-model change can replace the
+    /// available commands immediately without reopening `/mjconfig`.
+    pub(crate) fn refresh_reviewer_config_commands(&mut self) {
+        self.available_commands
+            .retain(|command| !builtin_commands::is_generated_reviewer_command(&command.name));
+        let commands = self.reviewer_config_commands();
+        if commands.is_empty() {
+            return;
+        }
+        let insertion = self
+            .available_commands
+            .iter()
+            .position(|command| command.name == builtin_commands::EFFORT_COMMAND)
+            .map(|index| index + 1)
+            .unwrap_or(self.available_commands.len());
+        self.available_commands.splice(
+            insertion..insertion,
+            commands
+                .into_iter()
+                .map(|command| AvailableCommand::new(command.name, command.description)),
+        );
+    }
+
+    /// Open the generated reviewer picker named by `command`. Returns `true`
+    /// only when the command belongs to the current reviewer catalog.
+    pub(crate) fn open_reviewer_config_picker(&mut self, command: &str) -> bool {
+        let Some(command) = self
+            .reviewer_config_commands()
+            .into_iter()
+            .find(|candidate| candidate.name == command.trim_start_matches('/'))
+        else {
+            return false;
+        };
+        let label = command.option_name.clone();
+        let opened = self.open_config_picker(
+            0,
+            command.option_name,
+            command.option_description,
+            command.choices,
+            Some(command.current_value),
+            None,
+            command.target,
+        );
+        if opened {
+            self.record_status_message(
+                StatusKind::Info,
+                format!("choose a {label} for future reviewer sessions"),
+            );
+        }
+        opened
+    }
+
+    fn reviewer_config_commands(&self) -> Vec<ReviewerConfigCommand> {
+        let Some(path) = self.config_path.as_deref() else {
+            return Vec::new();
+        };
+        let mut config = crate::config::Config::load(path).unwrap_or_default();
+        config.apply_default_team();
+        let editor = SettingsEditor::new(config.clone(), self.model_choices.clone(), None)
+            .with_active_models(self.active_models.clone())
+            .with_inventory(self.acp_inventory.clone());
+        let mut names = HashSet::new();
+        let mut commands = Vec::new();
+        let add = |command: ReviewerConfigCommand,
+                   names: &mut HashSet<String>,
+                   commands: &mut Vec<ReviewerConfigCommand>| {
+            if names.insert(command.name.clone()) {
+                commands.push(command);
+            }
+        };
+
+        let model_choices = editor
+            .model_choices(1)
+            .into_iter()
+            .map(|model| ConfigValueChoice {
+                value: SessionConfigValueId::from(model.clone()),
+                name: model,
+                description: None,
+                group: None,
+            })
+            .collect::<Vec<_>>();
+        add(
+            ReviewerConfigCommand {
+                name: format!("{}model", builtin_commands::REVIEWER_COMMAND_PREFIX),
+                description: "change the model used by future reviewer sessions".to_string(),
+                option_name: "Reviewer model".to_string(),
+                option_description: Some(
+                    "The selected model is used the next time Mjolnir starts a reviewer."
+                        .to_string(),
+                ),
+                choices: model_choices,
+                current_value: SessionConfigValueId::from(config.review.model.clone()),
+                target: ConfigPickerTarget::ReviewerModel {
+                    config: config.clone(),
+                },
+            },
+            &mut names,
+            &mut commands,
+        );
+
+        // Codex and Claude own their delegated `mode` through the review
+        // permission preset. Present it as the predictable `/reviewer-mode`
+        // picker rather than exposing a saved ACP value the runtime will
+        // intentionally discard before launching a reviewer.
+        add(
+            ReviewerConfigCommand {
+                name: format!("{}mode", builtin_commands::REVIEWER_COMMAND_PREFIX),
+                description: "change the permission mode used by future reviewer sessions"
+                    .to_string(),
+                option_name: "Reviewer mode".to_string(),
+                option_description: Some(
+                    "Controls the review session's provider permission mode.".to_string(),
+                ),
+                choices: crate::config::PermissionPreset::ALL
+                    .into_iter()
+                    .map(|preset| ConfigValueChoice {
+                        value: SessionConfigValueId::from(preset.as_str().to_string()),
+                        name: preset.to_string(),
+                        description: Some(preset.description().to_string()),
+                        group: None,
+                    })
+                    .collect(),
+                current_value: SessionConfigValueId::from(
+                    config.review.permission.as_str().to_string(),
+                ),
+                target: ConfigPickerTarget::ReviewerMode {
+                    config: config.clone(),
+                },
+            },
+            &mut names,
+            &mut commands,
+        );
+
+        let Some(source_id) =
+            editor.selected_session_source(crate::settings::SessionDefaultsSeat::Review)
+        else {
+            return commands;
+        };
+        let Some(server) = self
+            .acp_inventory
+            .servers
+            .iter()
+            .find(|server| server.id == source_id)
+        else {
+            return commands;
+        };
+        for option in &server.session_config {
+            let Some(choices) = config_option_choices(option) else {
+                continue;
+            };
+            if choices.is_empty()
+                || (matches!(option.category, Some(SessionConfigOptionCategory::Model))
+                    && !crate::settings::session_option_controls_reasoning_effort(option))
+                || option.id.to_string() == "mode"
+            {
+                continue;
+            }
+            let controls_reasoning_effort =
+                crate::settings::session_option_controls_reasoning_effort(option);
+            let name = if controls_reasoning_effort {
+                format!("{}effort", builtin_commands::REVIEWER_COMMAND_PREFIX)
+            } else {
+                builtin_commands::reviewer_option_command_name(&option.id.to_string())
+            };
+            let current_value = editor.saved_session_value(
+                crate::settings::SessionDefaultsSeat::Review,
+                &source_id,
+                option,
+            );
+            add(
+                ReviewerConfigCommand {
+                    name,
+                    description: format!(
+                        "change reviewer {} for future reviewer sessions",
+                        option.name.to_lowercase()
+                    ),
+                    option_name: option.name.clone(),
+                    option_description: option.description.clone(),
+                    choices,
+                    current_value: SessionConfigValueId::from(current_value),
+                    target: ConfigPickerTarget::ReviewerOption {
+                        config: config.clone(),
+                        source_id: source_id.clone(),
+                        option_id: option.id.to_string(),
+                        controls_reasoning_effort,
+                    },
+                },
+                &mut names,
+                &mut commands,
+            );
+        }
+        commands
+    }
+
+    /// Persist one generated reviewer picker selection. Returns the exact
+    /// saved config so the watcher can mark this process's own write seen.
+    pub(crate) fn save_reviewer_config_selection(
+        &mut self,
+        target: ConfigPickerTarget,
+        value: String,
+    ) -> std::result::Result<(), String> {
+        let path = self
+            .config_path
+            .clone()
+            .ok_or_else(|| "configuration file is unavailable".to_string())?;
+        let mut config = match target {
+            ConfigPickerTarget::Live(_) => {
+                return Err(
+                    "live session configuration cannot be saved as a reviewer default".to_string(),
+                );
+            }
+            ConfigPickerTarget::ReviewerModel { mut config } => {
+                config.review.model = value;
+                if config.review.model != "auto"
+                    && let Some(source) = self
+                        .model_choices
+                        .iter()
+                        .find(|choice| choice.available && choice.model == config.review.model)
+                        .and_then(|choice| choice.adapter.clone())
+                {
+                    config.review.acp_source = Some(source);
+                }
+                config
+            }
+            ConfigPickerTarget::ReviewerMode { mut config } => {
+                config.review.permission = value
+                    .parse()
+                    .map_err(|error: String| format!("invalid reviewer mode: {error}"))?;
+                config
+            }
+            ConfigPickerTarget::ReviewerOption {
+                mut config,
+                source_id,
+                option_id,
+                controls_reasoning_effort,
+            } => {
+                config
+                    .review
+                    .session_defaults
+                    .entry(source_id)
+                    .or_default()
+                    .insert(format!("config:{option_id}"), value.clone());
+                if controls_reasoning_effort {
+                    config.review.reasoning_effort = Some(value);
+                }
+                config
+            }
+        };
+        config.apply_default_team();
+        crate::config::save_user_config(&path, &config).map_err(|error| error.to_string())?;
+        self.config_written_here = Some(config.clone());
+        self.configured_models = config.model_names();
+        self.acp_inventory = crate::roster::rediscover_inventory(&config, &self.acp_inventory);
+        self.refresh_reviewer_config_commands();
+        Ok(())
     }
 
     /// Close the config picker overlay and restore autocomplete if needed.
@@ -4021,25 +4372,8 @@ impl AppState {
     /// case-insensitive substring match over each choice's `name` and
     /// (if present) `description`.
     pub fn config_picker_set_search(&mut self, query: impl Into<String>) {
-        let selected_option = match self.config_picker.as_ref() {
-            Some(picker) => picker.selected_option,
-            None => return,
-        };
         let query = query.into();
-        let option = self.session_config_options.get(selected_option).cloned();
         let Some(picker) = self.config_picker.as_mut() else {
-            return;
-        };
-        let Some(option) = option.as_ref() else {
-            picker.search_query = query;
-            picker.filtered_indices = Vec::new();
-            picker.selected_value = 0;
-            return;
-        };
-        let Some(choices) = config_option_choices(option) else {
-            picker.search_query = query;
-            picker.filtered_indices = Vec::new();
-            picker.selected_value = 0;
             return;
         };
 
@@ -4049,9 +4383,10 @@ impl AppState {
 
         let haystack = query.to_lowercase();
         let filtered: Vec<usize> = if haystack.is_empty() {
-            (0..choices.len()).collect()
+            (0..picker.choices.len()).collect()
         } else {
-            choices
+            picker
+                .choices
                 .iter()
                 .enumerate()
                 .filter(|(_, choice)| {
@@ -4076,29 +4411,32 @@ impl AppState {
     }
 
     /// Submit the current config value selection.
-    pub fn config_picker_accept(&mut self) -> Option<(SessionConfigTarget, SessionConfigValueId)> {
+    pub fn config_picker_accept(&mut self) -> Option<ConfigPickerSelection> {
         let (selected_option, selected_value) = {
             let picker = self.config_picker.as_ref()?;
             (picker.selected_option, picker.selected_value)
         };
 
-        let (target, value) = {
-            let option = self.session_config_options.get(selected_option)?;
-            let choices = config_option_choices(option)?;
+        let selection = {
             let picker = self.config_picker.as_ref()?;
             let full_index = *picker.filtered_indices.get(selected_value)?;
-            let choice = choices.get(full_index)?;
-            let target = self
-                .session_config_targets
-                .get(selected_option)
-                .cloned()
-                .unwrap_or_else(|| SessionConfigTarget::ConfigOption {
-                    config_id: option.id.clone(),
-                });
-            (target, choice.value.clone())
+            let choice = picker.choices.get(full_index)?;
+            match &picker.target {
+                ConfigPickerTarget::Live(target) => ConfigPickerSelection::Live {
+                    target: target.clone(),
+                    value: choice.value.clone(),
+                },
+                target => ConfigPickerSelection::Reviewer {
+                    target: Box::new(target.clone()),
+                    value: choice.value.to_string(),
+                },
+            }
         };
         self.dismiss_config_picker();
-        Some((target, value))
+        // Preserve this assignment for the live picker refresh's compact
+        // bookkeeping and to keep the field meaningful to callers/tests.
+        let _ = selected_option;
+        Some(selection)
     }
 
     /// Recompute slash-command or inline workspace-file completion from the
@@ -4417,6 +4755,7 @@ impl AppState {
                         session_fork_supported,
                         side_session_supported,
                     );
+                    self.refresh_reviewer_config_commands();
                 }
                 if !self.is_streaming() {
                     self.set_connection_state(ConnectionState::Initializing);
@@ -5837,6 +6176,7 @@ impl AppState {
                         session_fork_supported,
                         side_session_supported,
                     );
+                    self.refresh_reviewer_config_commands();
                 }
                 // The catalog changed mid-typing; rebuild the popover so
                 // a `/` already in the buffer reflects the new commands
@@ -5879,23 +6219,20 @@ impl AppState {
     }
 
     fn refresh_config_picker(&mut self) {
-        if self.session_config_options.is_empty() {
-            self.config_picker = None;
-            return;
-        };
-        let Some((selected_option, selected_value)) = self
-            .config_picker
-            .as_ref()
-            .map(|picker| (picker.selected_option, picker.selected_value))
+        let Some((selected_option, selected_value)) =
+            self.config_picker.as_ref().and_then(|picker| {
+                matches!(&picker.target, ConfigPickerTarget::Live(_))
+                    .then_some((picker.selected_option, picker.selected_value))
+            })
         else {
             return;
         };
 
-        let Some(option) = self.session_config_options.get(selected_option) else {
+        let Some(option) = self.session_config_options.get(selected_option).cloned() else {
             self.config_picker = None;
             return;
         };
-        let Some(choices) = config_option_choices(option) else {
+        let Some(choices) = config_option_choices(&option) else {
             self.config_picker = None;
             return;
         };
@@ -5904,13 +6241,21 @@ impl AppState {
             return;
         }
         if let Some(picker) = self.config_picker.as_mut() {
+            picker.option_name = option.name.clone();
+            picker.option_description = option.description.clone();
+            picker.choices = choices;
+            picker.current_value = config_option_current_value_id(&option)
+                .cloned()
+                .unwrap_or_else(|| picker.choices[0].value.clone());
+            picker.model_score_option = Some(option.clone());
             let query = picker.search_query.clone();
             // Recompute filtered indices against the new choices list.
             let haystack = query.to_lowercase();
             let filtered: Vec<usize> = if haystack.is_empty() {
-                (0..choices.len()).collect()
+                (0..picker.choices.len()).collect()
             } else {
-                choices
+                picker
+                    .choices
                     .iter()
                     .enumerate()
                     .filter(|(_, choice)| {
@@ -9053,13 +9398,13 @@ mod tests {
         s.config_picker_move(1);
         let submitted = s.config_picker_accept().expect("submitted");
         assert!(s.config_picker.is_none());
-        assert_eq!(
-            submitted.0,
-            SessionConfigTarget::ConfigOption {
-                config_id: "model".into()
-            }
-        );
-        assert_eq!(submitted.1.to_string(), "model-2");
+        assert!(matches!(
+            submitted,
+            ConfigPickerSelection::Live {
+                target: SessionConfigTarget::ConfigOption { config_id },
+                value,
+            } if config_id.to_string() == "model" && value.to_string() == "model-2"
+        ));
     }
 
     #[test]
@@ -9173,7 +9518,10 @@ mod tests {
 
         // Accept should submit gpt-4o (filtered_indices[0] = 0)
         let submitted = s.config_picker_accept().expect("submitted");
-        assert_eq!(submitted.1.to_string(), "gpt-4o");
+        assert!(matches!(
+            submitted,
+            ConfigPickerSelection::Live { value, .. } if value.to_string() == "gpt-4o"
+        ));
     }
 
     #[test]

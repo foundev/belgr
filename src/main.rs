@@ -72,7 +72,7 @@ struct Cli {
     /// Matches Claude Code's `--print`/`-p` shape where practical: provide
     /// the prompt as the optional value, or omit the value/read `-` to read
     /// stdin. Headless mode uses the configured agent from
-    /// `~/.config/mj/config.toml`; it does not open the interactive picker.
+    /// `~/.config/belgr/config.toml`; it does not open the interactive picker.
     #[arg(
         short = 'p',
         long = "print",

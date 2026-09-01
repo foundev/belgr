@@ -4,7 +4,7 @@
 //! worktrees, `mj server`, headless runs), and each used to spawn its
 //! own `claude -p /usage` probe — a full Claude Code process. This
 //! store keeps one global fact per provider in a small sqlite database
-//! under the mj config dir, plus a checkout lease so exactly one
+//! under the belgr config dir, plus a checkout lease so exactly one
 //! process refreshes a stale fact while the others wait and read the
 //! shared result.
 //!
@@ -19,7 +19,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use rusqlite::{Connection, OptionalExtension, params};
 
 /// Default location of the shared usage-fact database:
-/// `$XDG_CONFIG_HOME/mj/usage.sqlite3`.
+/// `$XDG_CONFIG_HOME/belgr/usage.sqlite3`.
 pub fn default_store_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))

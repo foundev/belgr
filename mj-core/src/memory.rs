@@ -72,8 +72,8 @@ fn default_next_id() -> u64 {
     1
 }
 
-/// Default store path: `$XDG_CONFIG_HOME/mj/memories.json` (or
-/// `~/.config/mj/memories.json` when `XDG_CONFIG_HOME` is unset).
+/// Default store path: `$XDG_CONFIG_HOME/belgr/memories.json` (or
+/// `~/.config/belgr/memories.json` when `XDG_CONFIG_HOME` is unset).
 pub fn default_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))

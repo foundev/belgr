@@ -2,7 +2,7 @@
 //!
 //! This reuses the same ACP runtime as the TUI and swaps the terminal UI for a
 //! small event collector. It intentionally requires an already-selected agent in
-//! `~/.config/mj/config.toml`; the interactive picker remains a TUI concern.
+//! `~/.config/belgr/config.toml`; the interactive picker remains a TUI concern.
 
 use std::path::PathBuf;
 use std::sync::{

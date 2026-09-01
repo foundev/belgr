@@ -1,7 +1,7 @@
 //! Persistent user config for `mj`.
 //!
 //! Stores the primary agent and subagent-pool preferences plus custom ACP
-//! launches. Lives at `~/.config/mj/config.toml`.
+//! launches. Lives at `~/.config/belgr/config.toml`.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -1665,8 +1665,8 @@ fn migrate_v6(body: &str) -> Result<Config> {
     Ok(config)
 }
 
-/// Default config path: `$XDG_CONFIG_HOME/mj/config.toml` (or
-/// `~/.config/mj/config.toml` when `XDG_CONFIG_HOME` is unset).
+/// Default config path: `$XDG_CONFIG_HOME/belgr/config.toml` (or
+/// `~/.config/belgr/config.toml` when `XDG_CONFIG_HOME` is unset).
 pub fn default_config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
@@ -1799,13 +1799,13 @@ pub fn save_user_config(path: &Path, config: &Config) -> Result<()> {
 }
 
 /// Directory for exported conversation transcripts:
-/// `$XDG_CONFIG_HOME/mj/transcripts`.
+/// `$XDG_CONFIG_HOME/belgr/transcripts`.
 pub fn transcript_export_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|dir| dir.join("belgr").join("transcripts"))
 }
 
 /// Path for the persisted prompt-history file (NUL-delimited format to
-/// support multiline prompts): `$XDG_CONFIG_HOME/mj/history.txt`.
+/// support multiline prompts): `$XDG_CONFIG_HOME/belgr/history.txt`.
 pub fn history_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))

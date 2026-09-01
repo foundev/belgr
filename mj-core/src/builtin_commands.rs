@@ -83,7 +83,7 @@ pub const SHARED_COMMANDS: &[SharedCommand] = &[
     },
     SharedCommand {
         name: MJCONFIG_COMMAND,
-        tui_description: "configure the team, reviewer, subagents, ACP servers, and appearance",
+        tui_description: "configure review, subagents, ACP servers, input, and appearance",
         web_description: "open the configuration editor",
         web_input_hint: None,
     },

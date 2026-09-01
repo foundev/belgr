@@ -5509,7 +5509,6 @@ struct MjAppearancePanel {
 /// Feature-discovery tips for the web viewer, phrased for browser and phone
 /// use: no terminal keybindings. The TUI keeps its own list in `mj-tui`.
 const WEB_FEATURE_TIPS: &[&str] = &[
-    "Pick Codex, Claude, or a mixed coder/reviewer team from the Team tab in settings.",
     "Queue another instruction while the agent is working; Belgr sends it when the turn allows and can steer supported agents mid-turn.",
     "Permission requests show the exact command or diff behind the action, so approvals are evidence-backed rather than blind.",
     "The primary agent can launch specialist subagents in parallel; their live activity appears above the composer.",
@@ -13030,7 +13029,7 @@ if (permissionsEl.children.length !== 0 || permissionCards.size !== 0) {
         // The composer's session-config button opens the Team tab now that
         // the Agent panel is gone from the shared catalog.
         assert!(!viewer.contains("openMjConfig(\"agents\")"));
-        assert!(viewer.contains("openMjConfig(\"team\")"));
+        assert!(viewer.contains("openMjConfig(\"reviewer\")"));
         assert!(viewer.contains("function renderMjTeam()"));
         // Re-choosing the persisted team unstages the destructive re-apply.
         assert!(viewer.contains("delete mjcfg.edits.team;"));

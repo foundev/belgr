@@ -9514,7 +9514,7 @@
       }
 
       // The strip under the composer stays compact: one button into the
-      // configuration editor, opening on the Team tab.
+      // configuration editor.
       function renderConfig(session) {
         const options = sessionConfigOptions(session);
         // Forget sent changes the session has applied (current_value caught
@@ -9545,7 +9545,7 @@
         open.textContent = "session config";
         open.setAttribute("aria-label", "Open the configuration editor");
         open.addEventListener("click", () => {
-          void openMjConfig("team");
+          void openMjConfig("reviewer");
         });
         sessionConfigEl.appendChild(open);
       }

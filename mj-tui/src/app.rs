@@ -666,10 +666,6 @@ pub struct FeatureHintCapabilities {
 enum FeatureHintRequirement {
     Always,
     Desktop,
-    /// Only when more than one team exists: a registered platform adapter
-    /// (e.g. Anvil on Android) is the sole team, so advertising the team
-    /// switcher would point at a key that does nothing.
-    TeamChoice,
     Subagents,
     Voice,
     Fork,
@@ -687,10 +683,6 @@ struct FeatureHint {
 // persistent TUI or web composer chrome. Keep the TUI shortcut guard below in
 // sync with the prompt chrome when it changes.
 const FEATURE_HINTS: &[FeatureHint] = &[
-    FeatureHint {
-        text: "Pick Codex, Claude, or a mixed coder/reviewer team before the first turn from the Team tab in /mjconfig.",
-        requirement: FeatureHintRequirement::TeamChoice,
-    },
     FeatureHint {
         text: "Use /new for another workspace, /clear for a fresh thread, /load to load a session into this primary, and /export to save this transcript.",
         requirement: FeatureHintRequirement::Always,
@@ -3437,7 +3429,6 @@ impl AppState {
             let eligible = match hint.requirement {
                 FeatureHintRequirement::Always => true,
                 FeatureHintRequirement::Desktop => !cfg!(target_os = "android"),
-                FeatureHintRequirement::TeamChoice => crate::roster::external_adapter().is_none(),
                 FeatureHintRequirement::Subagents => capabilities.subagents,
                 FeatureHintRequirement::Voice => capabilities.voice,
                 FeatureHintRequirement::Fork => capabilities.fork,
@@ -10996,7 +10987,7 @@ mod tests {
         );
         assert_eq!(
             s.available_commands[5].description,
-            "configure the team, reviewer, subagents, ACP servers, and appearance"
+            "configure review, subagents, ACP servers, input, and appearance"
         );
         assert_eq!(
             s.available_commands[10].description,
@@ -11641,10 +11632,6 @@ mod tests {
             FeatureHintRequirement::Always => {}
             // Depends on the compile target rather than runtime capabilities.
             FeatureHintRequirement::Desktop => {}
-            // Depends on the process-global external adapter, which tests
-            // cannot register per-case; no external adapter runs in this
-            // test binary, so the hint behaves like Always here.
-            FeatureHintRequirement::TeamChoice => {}
             FeatureHintRequirement::Subagents => caps.subagents = enabled,
             FeatureHintRequirement::Voice => caps.voice = enabled,
             FeatureHintRequirement::Fork => caps.fork = enabled,
@@ -11658,15 +11645,11 @@ mod tests {
     fn every_gated_feature_tip_follows_its_own_capability() {
         let now = Instant::now();
         for (index, hint) in FEATURE_HINTS.iter().enumerate() {
-            // Desktop depends on the compile target. TeamChoice reads the
-            // process-global external adapter, which a test cannot register
-            // per-case. gated_feature_hints_keep_their_capability_requirements
-            // pins both requirements.
+            // Desktop depends on the compile target.
             if matches!(
                 hint.requirement,
                 FeatureHintRequirement::Always
                     | FeatureHintRequirement::Desktop
-                    | FeatureHintRequirement::TeamChoice
             ) {
                 continue;
             }
@@ -11699,10 +11682,6 @@ mod tests {
     #[test]
     fn gated_feature_hints_keep_their_capability_requirements() {
         let expected = [
-            (
-                "mixed coder/reviewer team",
-                FeatureHintRequirement::TeamChoice,
-            ),
             (
                 "specialist subagents in parallel",
                 FeatureHintRequirement::Subagents,
@@ -11786,10 +11765,6 @@ mod tests {
     #[test]
     fn feature_hints_include_approved_product_capabilities_once() {
         let expected = [
-            (
-                "mixed coder/reviewer team",
-                FeatureHintRequirement::TeamChoice,
-            ),
             (
                 "queues it and can steer supported agents",
                 FeatureHintRequirement::Always,

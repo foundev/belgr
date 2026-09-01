@@ -277,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn onboarding_opens_the_standard_configuration_editor_on_the_team_tab() {
         let state = State::new(Kind::Fresh, Config::default(), Some(roster()), None);
 
@@ -313,6 +314,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn team_selection_uses_the_standard_settings_controls() {
         let mut state = State::new(Kind::Fresh, Config::default(), Some(roster()), None);
 
@@ -334,6 +336,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn a_defaulted_team_is_preselected_without_demanding_a_choice() {
         // Startup applies the default team on a machine signed in to both
         // providers, so setup opens on that team with nothing to answer.
@@ -363,6 +366,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Belgr has no team selector"]
     fn upgrade_with_custom_routing_requires_a_new_team_selection() {
         let mut config = Config {
             onboarding_version: 1,

@@ -27,8 +27,8 @@ Anvil's fire going.
   same machine.
 - **Package names**: crates `belgr` / `belgr-mj-*`, npm `belgr`.
 
-Anvil ships as an npm package and launches through `npx -y @brokkai/anvil`; set
-`MJ_ANVIL_PATH` to point at a local Anvil binary instead.
+Anvil launches through `uvx brokk acp`; set `MJ_ANVIL_PATH` to point at a local
+Anvil binary instead.
 
 ## Build
 

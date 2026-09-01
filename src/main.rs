@@ -4186,9 +4186,7 @@ mod tests {
         let worktree = CreatedWorktree {
             project_root: PathBuf::from("/Users/ryan/code/belgr"),
             worktree_root: PathBuf::from("/Users/ryan/code/belgr/.belgr/worktrees/bold-willow"),
-            session_cwd: PathBuf::from(
-                "/Users/ryan/code/belgr/.belgr/worktrees/bold-willow/src",
-            ),
+            session_cwd: PathBuf::from("/Users/ryan/code/belgr/.belgr/worktrees/bold-willow/src"),
             was_created: false,
         };
 
@@ -4200,8 +4198,7 @@ mod tests {
 
     #[test]
     fn project_label_uses_full_directory_path_inside_belgr_worktree() {
-        let cwd =
-            std::path::Path::new("/Users/ryan/code/belgr/.belgr/worktrees/bold-willow/src");
+        let cwd = std::path::Path::new("/Users/ryan/code/belgr/.belgr/worktrees/bold-willow/src");
         assert_eq!(
             project_label(cwd),
             mj_core::paths::display_path_with_tilde(cwd)

@@ -11648,8 +11648,7 @@ mod tests {
             // Desktop depends on the compile target.
             if matches!(
                 hint.requirement,
-                FeatureHintRequirement::Always
-                    | FeatureHintRequirement::Desktop
+                FeatureHintRequirement::Always | FeatureHintRequirement::Desktop
             ) {
                 continue;
             }

@@ -727,13 +727,8 @@ fn cargo_install_root(exe_path: &Path, current_version: &str) -> Option<PathBuf>
         return None;
     }
     let install_root = bin_dir.parent()?;
-    cargo_install_recorded(
-        install_root,
-        "belgr",
-        Some(current_version),
-        BIN_NAME,
-    )
-    .then(|| install_root.to_path_buf())
+    cargo_install_recorded(install_root, "belgr", Some(current_version), BIN_NAME)
+        .then(|| install_root.to_path_buf())
 }
 
 fn cargo_install_recorded(
@@ -1121,9 +1116,7 @@ end
     fn release_newer_than_current_requires_checksum_asset() {
         let release = GitHubRelease {
             tag_name: "v0.5.0".to_string(),
-            assets: vec![asset(
-                "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
-            )],
+            assets: vec![asset("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz")],
         };
 
         let err = update_info_from_release(
@@ -1133,19 +1126,16 @@ end
         )
         .expect_err("missing checksum should fail");
 
-        assert!(
-            err.to_string()
-                .contains("missing required checksum asset belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256")
-        );
+        assert!(err.to_string().contains(
+            "missing required checksum asset belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+        ));
     }
 
     #[test]
     fn release_not_newer_returns_none() {
         let release = GitHubRelease {
             tag_name: "v0.4.2".to_string(),
-            assets: vec![asset(
-                "belgr-v0.4.2-x86_64-unknown-linux-gnu.tar.gz",
-            )],
+            assets: vec![asset("belgr-v0.4.2-x86_64-unknown-linux-gnu.tar.gz")],
         };
 
         let update = update_info_from_release(
@@ -1167,10 +1157,7 @@ end
 
         let selected = select_mj_asset(&assets, &mac_arm()).expect("select");
 
-        assert_eq!(
-            selected.name,
-            "belgr-v0.5.0-universal-apple-darwin.tar.gz"
-        );
+        assert_eq!(selected.name, "belgr-v0.5.0-universal-apple-darwin.tar.gz");
     }
 
     #[test]
@@ -1197,10 +1184,7 @@ end
 
         let selected = select_mj_asset(&assets, &windows_x64()).expect("select");
 
-        assert_eq!(
-            selected.name,
-            "belgr-v0.5.0-x86_64-pc-windows-msvc.zip"
-        );
+        assert_eq!(selected.name, "belgr-v0.5.0-x86_64-pc-windows-msvc.zip");
     }
 
     #[test]
@@ -1212,21 +1196,15 @@ end
 
         let selected = select_mj_asset(&assets, &android_arm()).expect("select");
 
-        assert_eq!(
-            selected.name,
-            "belgr-v0.5.0-aarch64-linux-android.tar.gz"
-        );
+        assert_eq!(selected.name, "belgr-v0.5.0-aarch64-linux-android.tar.gz");
     }
 
     #[test]
     fn extract_mj_binary_finds_nested_binary() {
         let archive = make_tar_gz("belgr/bin/belgr", b"binary bytes");
 
-        let binary = extract_mj_binary(
-            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
-            &archive,
-        )
-        .expect("extract");
+        let binary = extract_mj_binary("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz", &archive)
+            .expect("extract");
 
         assert_eq!(binary, b"binary bytes");
     }
@@ -1245,11 +1223,9 @@ end
     fn extract_voice_worker_finds_unix_sidecar() {
         let archive = make_tar_gz("belgr/bin/belgr-voice-worker", b"voice worker bytes");
 
-        let binary = extract_voice_worker_binary(
-            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
-            &archive,
-        )
-        .expect("extract voice worker");
+        let binary =
+            extract_voice_worker_binary("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz", &archive)
+                .expect("extract voice worker");
 
         assert_eq!(binary, b"voice worker bytes");
     }
@@ -1261,11 +1237,9 @@ end
             b"windows voice worker bytes",
         );
 
-        let binary = extract_voice_worker_binary(
-            "belgr-v0.5.0-x86_64-pc-windows-msvc.zip",
-            &archive,
-        )
-        .expect("extract voice worker");
+        let binary =
+            extract_voice_worker_binary("belgr-v0.5.0-x86_64-pc-windows-msvc.zip", &archive)
+                .expect("extract voice worker");
 
         assert_eq!(binary, b"windows voice worker bytes");
     }
@@ -1274,11 +1248,9 @@ end
     fn optional_voice_worker_extracts_when_bundled() {
         let archive = make_tar_gz("belgr/belgr-voice-worker", b"voice worker bytes");
 
-        let binary = extract_optional_voice_worker(
-            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
-            &archive,
-        )
-        .expect("bundled voice worker");
+        let binary =
+            extract_optional_voice_worker("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz", &archive)
+                .expect("bundled voice worker");
 
         assert_eq!(binary, b"voice worker bytes");
     }
@@ -1287,10 +1259,8 @@ end
     fn optional_voice_worker_tolerates_archives_without_one() {
         let archive = make_tar_gz("belgr/belgr", b"binary bytes");
 
-        let binary = extract_optional_voice_worker(
-            "belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz",
-            &archive,
-        );
+        let binary =
+            extract_optional_voice_worker("belgr-v0.5.0-x86_64-unknown-linux-gnu.tar.gz", &archive);
 
         assert!(binary.is_none());
     }

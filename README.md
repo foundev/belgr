@@ -27,8 +27,8 @@ Anvil's fire going.
   same machine.
 - **Distribution**: versioned binary archives are released only through GitHub.
 
-Anvil launches through `uvx brokk acp`; set `MJ_ANVIL_PATH` to point at a local
-Anvil binary instead.
+Anvil launches through the `anvil` binary on `PATH`; set `MJ_ANVIL_PATH` to use a
+specific local Anvil binary instead.
 
 ## Build
 

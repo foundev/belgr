@@ -48,8 +48,9 @@ Belgr releases only through GitHub Releases. A successful tagged build attaches
 the platform archives and their SHA-256 sidecars to the generated release; no
 crates.io, npm, PyPI, Homebrew, or other package-registry publishing runs.
 
-The `uvx brokk acp` command used to launch Anvil is a runtime dependency of
-Belgr, not a Belgr distribution channel.
+The `anvil` binary used to launch Anvil is a runtime dependency of Belgr, not a
+Belgr distribution channel. Release validation should ensure it is available on
+the test machine's `PATH`.
 
 ## Discord announcement
 

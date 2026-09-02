@@ -10,13 +10,10 @@ use mj_core::roster::ExternalAdapter;
 /// The ACP source id Anvil registers and persists under.
 pub const SOURCE_ID: &str = "anvil";
 
-/// Brokk's ACP wrapper launches Anvil through `uvx`.
-pub const PACKAGE: &str = "brokk";
-
 /// Register Anvil as the implicit platform team. An `MJ_ANVIL_PATH` override
-/// pointing at a local binary wins; otherwise the adapter launches
-/// `uvx brokk acp`. A dangling override is honored as-is so it fails
-/// loudly at launch instead of being silently replaced.
+/// pointing at a local binary wins; otherwise the adapter launches the `anvil`
+/// binary from `PATH`. A dangling override is honored as-is so it fails loudly
+/// at launch instead of being silently replaced.
 pub fn register() {
     mj_core::roster::register_external_adapter(adapter(
         std::env::var_os("MJ_ANVIL_PATH").map(PathBuf::from),
@@ -30,9 +27,9 @@ fn adapter(override_path: Option<PathBuf>) -> ExternalAdapter {
             (path, Vec::new(), evidence)
         }
         None => (
-            PathBuf::from("uvx"),
-            vec![PACKAGE.to_string(), "acp".to_string()],
-            format!("uvx {PACKAGE} acp"),
+            PathBuf::from("anvil"),
+            Vec::new(),
+            "anvil (PATH)".to_string(),
         ),
     };
     ExternalAdapter {
@@ -50,16 +47,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_launch_is_uvx() {
+    fn default_launch_uses_anvil_from_path() {
         let found = adapter(None);
-        assert_eq!(found.command, PathBuf::from("uvx"));
-        assert_eq!(found.args, vec![PACKAGE.to_string(), "acp".to_string()]);
+        assert_eq!(found.command, PathBuf::from("anvil"));
+        assert!(found.args.is_empty());
         assert_eq!(found.id, SOURCE_ID);
-        assert_eq!(found.evidence, format!("uvx {PACKAGE} acp"));
+        assert_eq!(found.evidence, "anvil (PATH)");
     }
 
     #[test]
-    fn override_path_replaces_uvx() {
+    fn override_path_replaces_path_lookup() {
         let found = adapter(Some(PathBuf::from("/opt/anvil/anvil")));
         assert_eq!(found.command, PathBuf::from("/opt/anvil/anvil"));
         assert!(found.args.is_empty());

@@ -22,7 +22,7 @@ default-members = [".", "mj-core", "mj-agents", "mj-anvil", "mj-tui", "mj-remote
 # Single source of truth for the release version; workspace crates inherit it, so
 # they cannot drift apart (RELEASING.md requires them to match).
 [workspace.package]
-version = "1.17.0"
+version = "1.17.1"
 edition = "2024"
 rust-version = "1.97"
 license = "GPL-3.0-only"
@@ -34,12 +34,12 @@ categories = ["development-tools", "command-line-utilities"]
 # Keep every same-release workspace dependency requirement here, so release
 # bumps change the internal compatibility boundary in one manifest.
 [workspace.dependencies]
-mj-core = { package = "belgr-mj-core", path = "mj-core", version = "1.17.0" }
-mj-agents = { package = "belgr-mj-agents", path = "mj-agents", version = "1.17.0" }
-mj-anvil = { package = "belgr-mj-anvil", path = "mj-anvil", version = "1.17.0" }
-mj-tui = { package = "belgr-mj-tui", path = "mj-tui", version = "1.17.0" }
-mj-remote = { package = "belgr-mj-remote", path = "mj-remote", version = "1.17.0" }
-mj-desktop = { package = "belgr-mj-desktop", path = "mj-desktop", version = "1.17.0" }
+mj-core = { package = "belgr-mj-core", path = "mj-core", version = "1.17.1" }
+mj-agents = { package = "belgr-mj-agents", path = "mj-agents", version = "1.17.1" }
+mj-anvil = { package = "belgr-mj-anvil", path = "mj-anvil", version = "1.17.1" }
+mj-tui = { package = "belgr-mj-tui", path = "mj-tui", version = "1.17.1" }
+mj-remote = { package = "belgr-mj-remote", path = "mj-remote", version = "1.17.1" }
+mj-desktop = { package = "belgr-mj-desktop", path = "mj-desktop", version = "1.17.1" }
 
 [[bin]]
 name = "belgr"

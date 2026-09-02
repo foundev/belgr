@@ -30,7 +30,7 @@ target*/
 .brokk/
 
 # Mjolnir linked worktrees
-.mjolnir/worktrees/
+.belgr/worktrees/
 
 # Claude worktrees
 .claude

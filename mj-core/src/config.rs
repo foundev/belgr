@@ -1824,6 +1824,20 @@ impl SavedSessionConfig {
         self.values.insert(key.to_string(), value.to_string());
         Ok(true)
     }
+
+    /// Persist one accepted live model-selector change as the seat's saved
+    /// model route (`agent.model`, `review.model`, or `subagents.model`).
+    ///
+    /// The model selector is deliberately not part of the seat's
+    /// per-adapter session defaults: routing owns it. Returns `Ok(false)`
+    /// when this seat has no config file of its own (frozen values).
+    pub fn save_model_route(&mut self, model: &str) -> Result<bool> {
+        let Some(origin) = self.origin.as_ref() else {
+            return Ok(false);
+        };
+        save_live_model_route(&origin.path, origin.seat, model)?;
+        Ok(true)
+    }
 }
 
 /// Write one live session-option value into the owning seat's saved defaults.
@@ -1867,6 +1881,21 @@ fn save_live_session_config_default(
 }
 
 static SESSION_CONFIG_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Write one accepted live model-selector value into the owning seat's saved
+/// model route. Serialized like `save_live_session_config_default`.
+fn save_live_model_route(path: &Path, seat: SessionConfigSeat, model: &str) -> Result<()> {
+    let _guard = SESSION_CONFIG_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let mut config = Config::load(path)?;
+    match seat {
+        SessionConfigSeat::Primary => config.agent.model = model.to_string(),
+        SessionConfigSeat::Review => config.review.model = model.to_string(),
+        SessionConfigSeat::Subagent => config.subagents.model = model.to_string(),
+    }
+    config.save(path)
+}
 
 /// Save the user config under the shared write lock so concurrent saves (the
 /// TUI menu and the web `/mjconfig` page) serialize instead of interleaving.
@@ -3188,6 +3217,30 @@ version = {CONFIG_VERSION}
                 .save_default("config:mode", "auto", false)
                 .expect("frozen save")
         );
+    }
+
+    #[test]
+    fn save_model_route_writes_the_seat_routing_model() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("config.toml");
+        Config::default().save(&path).expect("seed config");
+
+        let mut primary = SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
+        assert!(primary.save_model_route("gpt-5-6-sol").expect("primary save"));
+        let mut review = SavedSessionConfig::load(&path, "claude-acp", SessionConfigSeat::Review);
+        assert!(review.save_model_route("claude-fable-5").expect("review save"));
+        let mut subagent =
+            SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Subagent);
+        assert!(subagent.save_model_route("gpt-5-6-luna").expect("subagent save"));
+
+        let on_disk = Config::load(&path).expect("reload config");
+        assert_eq!(on_disk.agent.model, "gpt-5-6-sol");
+        assert_eq!(on_disk.review.model, "claude-fable-5");
+        assert_eq!(on_disk.subagents.model, "gpt-5-6-luna");
+
+        // Frozen seats (headless lanes, side conversations) have no file.
+        let mut frozen = SavedSessionConfig::frozen(HashMap::new());
+        assert!(!frozen.save_model_route("gpt-5-6-sol").expect("frozen save"));
     }
 
     #[test]

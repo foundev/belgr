@@ -5718,19 +5718,28 @@ async fn drive_config_update(
                     }
                 };
                 // The agent accepted the change, so it is also this seat's
-                // saved default: `/model`, `/effort`, and the shortcut row
-                // write back to the config file, and the runtime's seat
-                // (primary, reviewer, or subagent) picks the defaults table.
-                // A save failure warns but does not roll the live session
-                // back.
-                if accepted
-                    && let Some(controls_reasoning_effort) = write_back
-                    && let Err(error) = saved_session_config.save_default(
-                        &session_config_target_key(&target),
-                        &value.to_string(),
-                        controls_reasoning_effort,
-                    )
-                {
+                // saved default: `/effort` and the shortcut row write back
+                // to the config file's session defaults, and `/model`
+                // rewrites the seat's saved model route. A save failure
+                // warns but does not roll the live session back.
+                let save_result = if !accepted {
+                    Ok(false)
+                } else {
+                    match write_back {
+                        LiveConfigWriteBack::SessionLocal => Ok(false),
+                        LiveConfigWriteBack::ModelRoute => {
+                            saved_session_config.save_model_route(&value.to_string())
+                        }
+                        LiveConfigWriteBack::SeatDefaults {
+                            controls_reasoning_effort,
+                        } => saved_session_config.save_default(
+                            &session_config_target_key(&target),
+                            &value.to_string(),
+                            controls_reasoning_effort,
+                        ),
+                    }
+                };
+                if let Err(error) = save_result {
                     let _ = ui_tx.send(UiEvent::Warning(format!(
                         "session change applied but not saved: {error:#}"
                     )));
@@ -5825,33 +5834,46 @@ fn session_config_option_is_persistable(
     }
 }
 
-/// How an accepted live config update writes back into the seat's saved
-/// defaults.
-///
-/// `None` keeps the change session-local: the model selector (whose value
-/// belongs to the seat's routing settings) and non-select options never save.
-/// `Some(flag)` saves the choice for this seat's future sessions, with the
-/// flag syncing the seat-wide reasoning-effort default.
+/// How an accepted live config update persists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LiveConfigWriteBack {
+    /// The change never saves: non-select options and legacy targets.
+    SessionLocal,
+    /// The model selector re-routes the session and also rewrites the seat's
+    /// saved model route (`agent.model`, `review.model`, `subagents.model`).
+    ModelRoute,
+    /// The choice saves into the seat's per-adapter session defaults, with
+    /// the flag syncing the seat-wide reasoning-effort default.
+    SeatDefaults {
+        controls_reasoning_effort: bool,
+    },
+}
+
 fn persistable_live_config_change(
     session_config: &SessionConfigCache,
     target: &SessionConfigTarget,
-) -> Option<bool> {
-    let (option, _) = session_config
+) -> LiveConfigWriteBack {
+    let Some((option, _)) = session_config
         .options
         .iter()
         .zip(session_config.targets.iter())
-        .find(|(_, candidate)| *candidate == target)?;
+        .find(|(_, candidate)| *candidate == target)
+    else {
+        return LiveConfigWriteBack::SessionLocal;
+    };
     if !session_config_option_is_persistable(option, target) {
-        return None;
+        return LiveConfigWriteBack::SessionLocal;
     }
     let controls_reasoning_effort =
         crate::settings::session_option_controls_reasoning_effort(option);
     if matches!(option.category, Some(SessionConfigOptionCategory::Model))
         && !controls_reasoning_effort
     {
-        return None;
+        return LiveConfigWriteBack::ModelRoute;
     }
-    Some(controls_reasoning_effort)
+    LiveConfigWriteBack::SeatDefaults {
+        controls_reasoning_effort,
+    }
 }
 
 async fn send_config_update(
@@ -13115,9 +13137,105 @@ mod tests {
         agent_task.abort();
     }
 
-    /// `/model` re-routes a session without touching the config's model
-    /// settings; `/effort` and ordinary options save into the seat defaults,
-    /// with only the effort-bearing option syncing the seat effort.
+    /// An accepted `/model` change rewrites the seat's saved model route
+    /// (`agent.model`) rather than a session-defaults entry.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn accepted_live_model_update_persists_the_seat_model_route() {
+        let (client_side, agent_side) = tokio::io::duplex(64 * 1024);
+        let (cr, cw) = split(client_side);
+        let client_transport = ByteStreams::new(cw.compat_write(), cr.compat());
+        let agent_task = tokio::spawn(run_mock_agent_with_slow_config(agent_side));
+        let config_dir = tempfile::tempdir().expect("config dir");
+        let config_path = config_dir.path().join("config.toml");
+        crate::config::Config::default()
+            .save(&config_path)
+            .expect("seed config");
+        let (ui_tx, mut ui_rx) = mpsc::unbounded_channel::<UiEvent>();
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<UiCommand>();
+        let client_task = tokio::spawn(drive_client_with_fs_limit(
+            client_transport,
+            std::env::temp_dir(),
+            Vec::new(),
+            Vec::new(),
+            None,
+            SessionRestoreMode::Continue,
+            ui_tx,
+            cmd_rx,
+            Arc::new(AtomicBool::new(false)),
+            DEFAULT_FS_TEXT_BYTES,
+            RuntimeAccessMode::Full,
+            crate::config::SavedSessionConfig::load(
+                &config_path,
+                "codex-acp",
+                crate::config::SessionConfigSeat::Primary,
+            ),
+            Some(RuntimeRoleConfig {
+                label: "primary".to_string(),
+                model_id: "model-a".to_string(),
+                model_value: "model-a".to_string(),
+                adapter_source_id: "codex-acp".to_string(),
+                permission: None,
+                session_tag: None,
+                reasoning_effort: None,
+            }),
+            None,
+            None,
+            false,
+            None,
+        ));
+
+        while !matches!(
+            tokio::time::timeout(EVENT_DEADLINE, ui_rx.recv())
+                .await
+                .expect("handshake timeout")
+                .expect("channel closed"),
+            UiEvent::SessionStarted { .. }
+        ) {}
+        cmd_tx
+            .send(UiCommand::SetSessionConfigOption {
+                target: SessionConfigTarget::ConfigOption {
+                    config_id: SessionConfigId::new("model"),
+                },
+                value: SessionConfigValueId::new("model-a"),
+            })
+            .expect("send model update");
+
+        let mut options_published = 0;
+        while options_published < 2 {
+            let ev = tokio::time::timeout(EVENT_DEADLINE, ui_rx.recv())
+                .await
+                .expect("timeout waiting for config acceptance")
+                .expect("channel closed");
+            if matches!(ev, UiEvent::SessionConfigOptions { .. }) {
+                options_published += 1;
+            }
+        }
+
+        let mut saved_model = None;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        while saved_model.as_deref() != Some("model-a") {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "the accepted /model change was never saved as the seat's model route"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            saved_model = crate::config::Config::load(&config_path)
+                .ok()
+                .map(|saved| saved.agent.model);
+        }
+
+        cmd_tx.send(UiCommand::Shutdown).expect("shutdown");
+        tokio::time::timeout(EVENT_DEADLINE, client_task)
+            .await
+            .expect("client shutdown timeout")
+            .expect("client task")
+            .expect("client result");
+        agent_task.abort();
+    }
+
+    /// `/model` also rewrites the seat's saved model route; `/effort` and
+    /// ordinary options save into the seat defaults, with only the
+    /// effort-bearing option syncing the seat effort.
     #[test]
     fn live_config_write_back_classification() {
         let options = vec![
@@ -13152,17 +13270,21 @@ mod tests {
 
         assert_eq!(
             persistable_live_config_change(&cache, &cache.targets[0]),
-            None,
-            "the model selector stays session-local; routing owns it"
+            LiveConfigWriteBack::ModelRoute,
+            "the model selector also rewrites the seat's saved model route"
         );
         assert_eq!(
             persistable_live_config_change(&cache, &cache.targets[1]),
-            Some(true),
+            LiveConfigWriteBack::SeatDefaults {
+                controls_reasoning_effort: true
+            },
             "an effort selector saves and syncs the seat effort"
         );
         assert_eq!(
             persistable_live_config_change(&cache, &cache.targets[2]),
-            Some(false),
+            LiveConfigWriteBack::SeatDefaults {
+                controls_reasoning_effort: false
+            },
             "an ordinary option saves without touching the seat effort"
         );
     }

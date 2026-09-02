@@ -1785,6 +1785,85 @@ impl SavedSessionConfig {
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
+
+    /// Persist one accepted live session-option change as this seat's saved
+    /// default, then refresh the in-memory view so the next session lifecycle
+    /// re-read agrees with the file.
+    ///
+    /// `/model`, `/effort`, and the session-config shortcut row change the
+    /// running ACP session first; once the agent accepts the value, that
+    /// choice is also what future sessions of this seat start with. Seats are
+    /// tracked separately: the primary runtime writes
+    /// `agent.session_defaults`, a reviewer writes `review.session_defaults`,
+    /// a subagent writes `subagents.session_defaults`.
+    ///
+    /// Returns `Ok(false)` without writing when this seat has no config file
+    /// of its own (frozen values: headless lanes, side conversations, tests)
+    /// or when an explicit seat policy owns the key, so a delegated
+    /// permission preset still outranks a live picker change.
+    pub fn save_default(
+        &mut self,
+        key: &str,
+        value: &str,
+        controls_reasoning_effort: bool,
+    ) -> Result<bool> {
+        let Some(origin) = self.origin.as_ref() else {
+            return Ok(false);
+        };
+        if self.excluded.iter().any(|excluded| excluded == key) {
+            return Ok(false);
+        }
+        save_live_session_config_default(
+            &origin.path,
+            &origin.source_id,
+            origin.seat,
+            key,
+            value,
+            controls_reasoning_effort,
+        )?;
+        self.values.insert(key.to_string(), value.to_string());
+        Ok(true)
+    }
+}
+
+/// Write one live session-option value into the owning seat's saved defaults.
+///
+/// Held under the shared write lock across the whole read-modify-write so a
+/// concurrent `/mjconfig` save cannot interleave with it.
+fn save_live_session_config_default(
+    path: &Path,
+    source_id: &str,
+    seat: SessionConfigSeat,
+    key: &str,
+    value: &str,
+    controls_reasoning_effort: bool,
+) -> Result<()> {
+    let _guard = SESSION_CONFIG_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let mut config = Config::load(path)?;
+    let (scoped, seat_effort) = match seat {
+        SessionConfigSeat::Primary => (
+            &mut config.agent.session_defaults,
+            &mut config.agent.reasoning_effort,
+        ),
+        SessionConfigSeat::Review => (
+            &mut config.review.session_defaults,
+            &mut config.review.reasoning_effort,
+        ),
+        SessionConfigSeat::Subagent => (
+            &mut config.subagents.session_defaults,
+            &mut config.subagents.reasoning_effort,
+        ),
+    };
+    scoped
+        .entry(source_id.to_string())
+        .or_default()
+        .insert(key.to_string(), value.to_string());
+    if controls_reasoning_effort {
+        *seat_effort = Some(value.to_string());
+    }
+    config.save(path)
 }
 
 static SESSION_CONFIG_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -2977,8 +3056,9 @@ version = {CONFIG_VERSION}
         );
     }
 
-    /// A `/mjconfig` save writes the edited defaults verbatim; there is no
-    /// merge with live-session state because live changes are never persisted.
+    /// A `/mjconfig` save writes the edited defaults verbatim; it does not
+    /// merge with live-session state because those writes go through
+    /// [`SavedSessionConfig::save_default`], one accepted change at a time.
     #[test]
     fn user_config_save_round_trips_edited_defaults() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -3006,6 +3086,107 @@ version = {CONFIG_VERSION}
         assert_eq!(
             loaded.session_config["codex-acp"].defaults["config:service_tier"],
             "economy"
+        );
+    }
+
+    /// An accepted live session change (`/model`, `/effort`, the shortcut
+    /// row) saves into the seat that made it, and only that seat.
+    #[test]
+    fn save_default_writes_each_seat_separately() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("config.toml");
+        Config::default().save(&path).expect("seed config");
+
+        let mut primary = SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
+        let mut review = SavedSessionConfig::load(&path, "claude-acp", SessionConfigSeat::Review);
+        let mut subagent =
+            SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Subagent);
+
+        assert!(
+            primary
+                .save_default("config:service_tier", "priority", false)
+                .expect("primary save")
+        );
+        assert!(
+            review
+                .save_default("config:thinking", "high", true)
+                .expect("review save")
+        );
+        assert!(
+            subagent
+                .save_default("config:service_tier", "flex", false)
+                .expect("subagent save")
+        );
+
+        let saved = Config::load(&path).expect("reload config");
+        assert_eq!(
+            saved.agent.session_defaults["codex-acp"]["config:service_tier"],
+            "priority"
+        );
+        assert_eq!(
+            saved.review.session_defaults["claude-acp"]["config:thinking"],
+            "high"
+        );
+        assert_eq!(
+            saved.subagents.session_defaults["codex-acp"]["config:service_tier"],
+            "flex"
+        );
+        assert_eq!(
+            saved.review.reasoning_effort.as_deref(),
+            Some("high"),
+            "an effort-bearing change syncs the seat's reasoning-effort default"
+        );
+        assert!(
+            saved.agent.reasoning_effort.is_none(),
+            "a plain option leaves the primary effort default alone"
+        );
+        assert!(
+            !saved.agent.session_defaults.contains_key("claude-acp"),
+            "one seat's save never leaks into another seat's table"
+        );
+
+        // The in-memory view follows the file, so the next lifecycle re-read
+        // of this seat agrees without hitting the disk twice.
+        assert_eq!(primary.values()["config:service_tier"], "priority");
+        assert_eq!(review.values()["config:thinking"], "high");
+        assert_eq!(subagent.values()["config:service_tier"], "flex");
+    }
+
+    /// A seat policy (the delegated reviewer/subagent permission mode) still
+    /// outranks a live change: the key stays excluded and nothing is written.
+    #[test]
+    fn save_default_skips_excluded_and_frozen_seats() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("config.toml");
+        let mut config = Config::default();
+        config
+            .agent
+            .session_defaults
+            .entry("codex-acp".to_string())
+            .or_default()
+            .insert("config:mode".to_string(), "agent".to_string());
+        config.save(&path).expect("seed config");
+
+        let mut saved = SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
+        saved.exclude("config:mode".to_string());
+        assert!(
+            !saved
+                .save_default("config:mode", "full-access", false)
+                .expect("excluded save")
+        );
+        let on_disk = Config::load(&path).expect("reload config");
+        assert_eq!(
+            on_disk.agent.session_defaults["codex-acp"]["config:mode"], "agent",
+            "an excluded key is not overwritten by a live change"
+        );
+        assert!(!saved.values().contains_key("config:mode"));
+
+        // Frozen seats (headless lanes, side conversations) have no file.
+        let mut frozen = SavedSessionConfig::frozen(HashMap::new());
+        assert!(
+            !frozen
+                .save_default("config:mode", "auto", false)
+                .expect("frozen save")
         );
     }
 

@@ -108,9 +108,12 @@ new session. Concretely:
 - `/model`, `/effort`, and the F1–F8 session-config shortcut row under the
   quota numbers update the current ACP session without a restart (when the
   connected agent advertises the corresponding selectors; changes made during
-  a turn apply after it finishes). They are session-local: nothing is written
-  to the config file, and neither other running sessions nor future sessions
-  are affected.
+  a turn apply after it finishes). Once the agent accepts the change it is
+  saved as that role's default for future sessions, tracked per role: the
+  primary agent's choices land in `agent.session_defaults`, a reviewer's in
+  `review.session_defaults`, and a subagent's in
+  `subagents.session_defaults`. A `/model` switch re-routes the running
+  session only — the role's model routing keeps its configured default.
 - `/reviewer-model`, `/reviewer-mode`, `/reviewer-effort`, and a generated
   `/reviewer-<option-id>` command for every other selectable reviewer ACP
   option open the same searchable picker and save the reviewer default. For

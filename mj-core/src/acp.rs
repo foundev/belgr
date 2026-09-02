@@ -2826,6 +2826,7 @@ async fn drive_session(
                     value,
                     &mut session_config,
                     &hidden_config_ids,
+                    &mut saved_session_config,
                     ui_tx,
                     ui_rx,
                     &mut deferred_prompts,
@@ -2859,6 +2860,7 @@ async fn drive_session(
                     ui_tx,
                     ui_rx,
                     &mut deferred_prompts,
+                    &mut deferred_config_updates,
                     &mut deferred_reapply,
                 )
                 .await?
@@ -3369,6 +3371,7 @@ async fn drive_fork_session(
     ui_tx: &mpsc::UnboundedSender<UiEvent>,
     ui_rx: &mut mpsc::UnboundedReceiver<UiCommand>,
     deferred_prompts: &mut VecDeque<(String, Vec<PromptImage>, Vec<PromptResource>)>,
+    deferred_config_updates: &mut VecDeque<(SessionConfigTarget, SessionConfigValueId)>,
     deferred_reapply: &mut bool,
 ) -> Result<bool> {
     let source_session_id = session_id.clone();
@@ -3441,9 +3444,11 @@ async fn drive_fork_session(
                                 .to_string(),
                         ));
                     }
-                    Some(UiCommand::SetSessionConfigOption { .. }) => {
-                        let _ = ui_tx.send(UiEvent::Warning(
-                            "session fork already in flight".to_string(),
+                    Some(UiCommand::SetSessionConfigOption { target, value }) => {
+                        deferred_config_updates.push_back((target, value));
+                        let _ = ui_tx.send(UiEvent::Info(
+                            "session config update queued until the session fork completes"
+                                .to_string(),
                         ));
                     }
                     Some(UiCommand::ReapplySavedSessionConfig) => {
@@ -5665,19 +5670,22 @@ async fn drive_config_update(
     value: agent_client_protocol::schema::v1::SessionConfigValueId,
     session_config: &mut SessionConfigCache,
     hidden_config_ids: &[String],
+    saved_session_config: &mut crate::config::SavedSessionConfig,
     ui_tx: &mpsc::UnboundedSender<UiEvent>,
     ui_rx: &mut mpsc::UnboundedReceiver<UiCommand>,
     deferred_prompts: &mut VecDeque<(String, Vec<PromptImage>, Vec<PromptResource>)>,
     deferred_config_updates: &mut VecDeque<(SessionConfigTarget, SessionConfigValueId)>,
     deferred_reapply: &mut bool,
 ) -> Result<bool> {
+    // Read from the pre-update cache: the acceptance arms below replace it.
+    let write_back = persistable_live_config_change(session_config, &target);
     let update = send_config_update(conn, session_id, target.clone(), value.clone());
     tokio::pin!(update);
 
     loop {
         tokio::select! {
             result = &mut update => {
-                match result {
+                let accepted = match result {
                     Ok(Some(options)) => {
                         session_config.targets = config_option_targets(&options);
                         session_config.options = options;
@@ -5686,6 +5694,7 @@ async fn drive_config_update(
                             targets: session_config.targets.clone(),
                             hidden_config_ids: hidden_config_ids.to_vec(),
                         });
+                        true
                     }
                     Ok(None) => {
                         set_current_config_value(
@@ -5699,16 +5708,33 @@ async fn drive_config_update(
                             targets: session_config.targets.clone(),
                             hidden_config_ids: hidden_config_ids.to_vec(),
                         });
+                        true
                     }
                     Err(e) => {
                         let _ = ui_tx.send(UiEvent::Warning(format!(
                             "session config update failed: {e}"
                         )));
+                        false
                     }
+                };
+                // The agent accepted the change, so it is also this seat's
+                // saved default: `/model`, `/effort`, and the shortcut row
+                // write back to the config file, and the runtime's seat
+                // (primary, reviewer, or subagent) picks the defaults table.
+                // A save failure warns but does not roll the live session
+                // back.
+                if accepted
+                    && let Some(controls_reasoning_effort) = write_back
+                    && let Err(error) = saved_session_config.save_default(
+                        &session_config_target_key(&target),
+                        &value.to_string(),
+                        controls_reasoning_effort,
+                    )
+                {
+                    let _ = ui_tx.send(UiEvent::Warning(format!(
+                        "session change applied but not saved: {error:#}"
+                    )));
                 }
-                // Deliberately no write-back to the config file: a live
-                // change belongs to this session alone. Defaults for new
-                // sessions change only through `/mjconfig`.
                 return Ok(true);
             }
             maybe_cmd = ui_rx.recv() => {
@@ -5797,6 +5823,35 @@ fn session_config_option_is_persistable(
         SessionConfigTarget::LegacyModel => false,
         SessionConfigTarget::LegacyMode => true,
     }
+}
+
+/// How an accepted live config update writes back into the seat's saved
+/// defaults.
+///
+/// `None` keeps the change session-local: the model selector (whose value
+/// belongs to the seat's routing settings) and non-select options never save.
+/// `Some(flag)` saves the choice for this seat's future sessions, with the
+/// flag syncing the seat-wide reasoning-effort default.
+fn persistable_live_config_change(
+    session_config: &SessionConfigCache,
+    target: &SessionConfigTarget,
+) -> Option<bool> {
+    let (option, _) = session_config
+        .options
+        .iter()
+        .zip(session_config.targets.iter())
+        .find(|(_, candidate)| *candidate == target)?;
+    if !session_config_option_is_persistable(option, target) {
+        return None;
+    }
+    let controls_reasoning_effort =
+        crate::settings::session_option_controls_reasoning_effort(option);
+    if matches!(option.category, Some(SessionConfigOptionCategory::Model))
+        && !controls_reasoning_effort
+    {
+        return None;
+    }
+    Some(controls_reasoning_effort)
 }
 
 async fn send_config_update(
@@ -12952,17 +13007,21 @@ mod tests {
         shutdown_lifecycle_rig(cmd_tx, client_task, agent_task).await;
     }
 
-    /// A live in-session change belongs to that session alone: it must apply
-    /// to the running ACP session and never be written back to the config
-    /// file, so other sessions and future sessions are unaffected.
+    /// An accepted live session-config change (`/model`, `/effort`, the
+    /// shortcut row) is saved as this seat's default: the primary runtime
+    /// writes `agent.session_defaults`, and a seat with an explicit policy
+    /// (the delegated permission mode) still owns its key.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn accepted_live_config_update_is_never_persisted() {
+    async fn accepted_live_config_update_persists_to_the_seat_defaults() {
         let (client_side, agent_side) = tokio::io::duplex(64 * 1024);
         let (cr, cw) = split(client_side);
         let client_transport = ByteStreams::new(cw.compat_write(), cr.compat());
         let agent_task = tokio::spawn(run_mock_agent_with_slow_config(agent_side));
         let config_dir = tempfile::tempdir().expect("config dir");
         let config_path = config_dir.path().join("config.toml");
+        crate::config::Config::default()
+            .save(&config_path)
+            .expect("seed config");
         let (ui_tx, mut ui_rx) = mpsc::unbounded_channel::<UiEvent>();
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<UiCommand>();
         let client_task = tokio::spawn(drive_client_with_fs_limit(
@@ -12977,7 +13036,11 @@ mod tests {
             Arc::new(AtomicBool::new(false)),
             DEFAULT_FS_TEXT_BYTES,
             RuntimeAccessMode::Full,
-            Default::default(),
+            crate::config::SavedSessionConfig::load(
+                &config_path,
+                "codex-acp",
+                crate::config::SessionConfigSeat::Primary,
+            ),
             Some(RuntimeRoleConfig {
                 label: "primary".to_string(),
                 model_id: "model-a".to_string(),
@@ -13022,11 +13085,26 @@ mod tests {
             }
         }
 
-        // The accepted value stays session-local: no config file appears.
-        assert!(
-            !config_path.exists(),
-            "a live session change must not be written to the config file"
-        );
+        // The acceptance publish is emitted before the same task performs
+        // the synchronous save, so poll for the write instead of racing it.
+        let mut saved_value = None;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        while saved_value.as_deref() != Some("priority") {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "the accepted live change was never saved as the primary seat's default"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            saved_value = crate::config::Config::load(&config_path)
+                .ok()
+                .and_then(|saved| {
+                    saved
+                        .agent
+                        .session_defaults
+                        .get("codex-acp")
+                        .and_then(|defaults| defaults.get("config:service_tier").cloned())
+                });
+        }
 
         cmd_tx.send(UiCommand::Shutdown).expect("shutdown");
         tokio::time::timeout(EVENT_DEADLINE, client_task)
@@ -13035,6 +13113,58 @@ mod tests {
             .expect("client task")
             .expect("client result");
         agent_task.abort();
+    }
+
+    /// `/model` re-routes a session without touching the config's model
+    /// settings; `/effort` and ordinary options save into the seat defaults,
+    /// with only the effort-bearing option syncing the seat effort.
+    #[test]
+    fn live_config_write_back_classification() {
+        let options = vec![
+            SessionConfigOption::select(
+                "model",
+                "Model",
+                "model-a",
+                vec![SessionConfigSelectOption::new("model-a", "Model A")],
+            )
+            .category(SessionConfigOptionCategory::Model),
+            SessionConfigOption::select(
+                REASONING_EFFORT_CONFIG_ID,
+                "Reasoning effort",
+                "high",
+                vec![SessionConfigSelectOption::new("high", "High")],
+            )
+            .category(SessionConfigOptionCategory::Model),
+            SessionConfigOption::select(
+                "service_tier",
+                "Service tier",
+                "default",
+                vec![
+                    SessionConfigSelectOption::new("default", "Default"),
+                    SessionConfigSelectOption::new("priority", "Priority"),
+                ],
+            ),
+        ];
+        let cache = SessionConfigCache {
+            targets: config_option_targets(&options),
+            options,
+        };
+
+        assert_eq!(
+            persistable_live_config_change(&cache, &cache.targets[0]),
+            None,
+            "the model selector stays session-local; routing owns it"
+        );
+        assert_eq!(
+            persistable_live_config_change(&cache, &cache.targets[1]),
+            Some(true),
+            "an effort selector saves and syncs the seat effort"
+        );
+        assert_eq!(
+            persistable_live_config_change(&cache, &cache.targets[2]),
+            Some(false),
+            "an ordinary option saves without touching the seat effort"
+        );
     }
 
     async fn run_mock_agent_recording_slow_config_updates(

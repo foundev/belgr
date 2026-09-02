@@ -112,8 +112,10 @@ new session. Concretely:
   saved as that role's default for future sessions, tracked per role: the
   primary agent's choices land in `agent.session_defaults`, a reviewer's in
   `review.session_defaults`, and a subagent's in
-  `subagents.session_defaults`. A `/model` switch re-routes the running
-  session only — the role's model routing keeps its configured default.
+  `subagents.session_defaults`. A `/model` switch is the only way to set the
+  primary agent's model: it re-routes the running session and also rewrites
+  the role's saved model route (`agent.model`, `review.model`, or
+  `subagents.model`), so the choice carries into future sessions.
 - `/reviewer-model`, `/reviewer-mode`, `/reviewer-effort`, and a generated
   `/reviewer-<option-id>` command for every other selectable reviewer ACP
   option open the same searchable picker and save the reviewer default. For

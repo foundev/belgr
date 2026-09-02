@@ -3097,21 +3097,26 @@ version = {CONFIG_VERSION}
         let path = dir.path().join("config.toml");
         Config::default().save(&path).expect("seed config");
 
-        let mut primary =
-            SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
+        let mut primary = SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
         let mut review = SavedSessionConfig::load(&path, "claude-acp", SessionConfigSeat::Review);
         let mut subagent =
             SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Subagent);
 
-        assert!(primary
-            .save_default("config:service_tier", "priority", false)
-            .expect("primary save"));
-        assert!(review
-            .save_default("config:thinking", "high", true)
-            .expect("review save"));
-        assert!(subagent
-            .save_default("config:service_tier", "flex", false)
-            .expect("subagent save"));
+        assert!(
+            primary
+                .save_default("config:service_tier", "priority", false)
+                .expect("primary save")
+        );
+        assert!(
+            review
+                .save_default("config:thinking", "high", true)
+                .expect("review save")
+        );
+        assert!(
+            subagent
+                .save_default("config:service_tier", "flex", false)
+                .expect("subagent save")
+        );
 
         let saved = Config::load(&path).expect("reload config");
         assert_eq!(
@@ -3136,10 +3141,7 @@ version = {CONFIG_VERSION}
             "a plain option leaves the primary effort default alone"
         );
         assert!(
-            !saved
-                .agent
-                .session_defaults
-                .contains_key("claude-acp"),
+            !saved.agent.session_defaults.contains_key("claude-acp"),
             "one seat's save never leaks into another seat's table"
         );
 
@@ -3167,22 +3169,25 @@ version = {CONFIG_VERSION}
 
         let mut saved = SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
         saved.exclude("config:mode".to_string());
-        assert!(!saved
-            .save_default("config:mode", "full-access", false)
-            .expect("excluded save"));
+        assert!(
+            !saved
+                .save_default("config:mode", "full-access", false)
+                .expect("excluded save")
+        );
         let on_disk = Config::load(&path).expect("reload config");
         assert_eq!(
-            on_disk.agent.session_defaults["codex-acp"]["config:mode"],
-            "agent",
+            on_disk.agent.session_defaults["codex-acp"]["config:mode"], "agent",
             "an excluded key is not overwritten by a live change"
         );
         assert!(!saved.values().contains_key("config:mode"));
 
         // Frozen seats (headless lanes, side conversations) have no file.
         let mut frozen = SavedSessionConfig::frozen(HashMap::new());
-        assert!(!frozen
-            .save_default("config:mode", "auto", false)
-            .expect("frozen save"));
+        assert!(
+            !frozen
+                .save_default("config:mode", "auto", false)
+                .expect("frozen save")
+        );
     }
 
     #[test]

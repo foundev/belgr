@@ -62,7 +62,11 @@ use crate::ui::HeaderLabels;
 use crate::worktree::CreatedWorktree;
 
 #[derive(Debug, Parser)]
-#[command(name = "belgr", version, about = "Interactive ACP chat TUI for Draupnir")]
+#[command(
+    name = "belgr",
+    version,
+    about = "Interactive ACP chat TUI for Draupnir"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,

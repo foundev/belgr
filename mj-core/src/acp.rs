@@ -5844,9 +5844,7 @@ enum LiveConfigWriteBack {
     ModelRoute,
     /// The choice saves into the seat's per-adapter session defaults, with
     /// the flag syncing the seat-wide reasoning-effort default.
-    SeatDefaults {
-        controls_reasoning_effort: bool,
-    },
+    SeatDefaults { controls_reasoning_effort: bool },
 }
 
 fn persistable_live_config_change(

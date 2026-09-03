@@ -3226,12 +3226,24 @@ version = {CONFIG_VERSION}
         Config::default().save(&path).expect("seed config");
 
         let mut primary = SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Primary);
-        assert!(primary.save_model_route("gpt-5-6-sol").expect("primary save"));
+        assert!(
+            primary
+                .save_model_route("gpt-5-6-sol")
+                .expect("primary save")
+        );
         let mut review = SavedSessionConfig::load(&path, "claude-acp", SessionConfigSeat::Review);
-        assert!(review.save_model_route("claude-fable-5").expect("review save"));
+        assert!(
+            review
+                .save_model_route("claude-fable-5")
+                .expect("review save")
+        );
         let mut subagent =
             SavedSessionConfig::load(&path, "codex-acp", SessionConfigSeat::Subagent);
-        assert!(subagent.save_model_route("gpt-5-6-luna").expect("subagent save"));
+        assert!(
+            subagent
+                .save_model_route("gpt-5-6-luna")
+                .expect("subagent save")
+        );
 
         let on_disk = Config::load(&path).expect("reload config");
         assert_eq!(on_disk.agent.model, "gpt-5-6-sol");

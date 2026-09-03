@@ -1416,7 +1416,10 @@ mod tests {
     #[test]
     fn auto_primary_falls_back_to_an_external_model_when_nothing_is_ranked() {
         let discovery = Discovery {
-            available: vec![external_role("draupnir-coder"), external_role("draupnir-mini")],
+            available: vec![
+                external_role("draupnir-coder"),
+                external_role("draupnir-mini"),
+            ],
             adapter_errors: HashMap::new(),
             session_config: HashMap::new(),
         };

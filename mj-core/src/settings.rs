@@ -29,7 +29,7 @@ pub fn is_configurable_acp_server(id: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsTab {
     /// Legacy Mjolnir panel retained for config/onboarding compatibility. It
-    /// is deliberately absent from [`SettingsTab::ALL`] in Anvil-only Belgr.
+    /// is deliberately absent from [`SettingsTab::ALL`] in Draupnir-only Belgr.
     Team,
     Reviewer,
     Subagents,
@@ -355,7 +355,7 @@ mod tests {
     fn only_builtin_servers_are_configurable() {
         assert!(is_configurable_acp_server("codex-acp"));
         assert!(is_configurable_acp_server("claude-acp"));
-        assert!(!is_configurable_acp_server("anvil"));
+        assert!(!is_configurable_acp_server("draupnir"));
     }
 
     #[test]

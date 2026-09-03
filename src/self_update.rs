@@ -417,7 +417,7 @@ fn extract_voice_worker_binary(archive_name: &str, archive_bytes: &[u8]) -> Resu
 
 /// Sidecar binaries are optional in release archives: a future release that
 /// retires the voice worker must not strand older updaters the way removing
-/// the bundled Anvil stranded mj <= 1.5.x. Only `mj` itself is mandatory.
+/// the bundled Draupnir stranded mj <= 1.5.x. Only `mj` itself is mandatory.
 fn extract_optional_voice_worker(archive_name: &str, archive_bytes: &[u8]) -> Option<Vec<u8>> {
     match extract_voice_worker_binary(archive_name, archive_bytes) {
         Ok(worker) => Some(worker),

@@ -10,7 +10,7 @@ const manifestPath = path.join(repositoryRoot, "Cargo.toml");
 const internalPackages = [
   "belgr-mj-core",
   "belgr-mj-agents",
-  "belgr-mj-anvil",
+  "belgr-mj-draupnir",
   "belgr-mj-tui",
   "belgr-mj-remote",
   "belgr-mj-desktop",

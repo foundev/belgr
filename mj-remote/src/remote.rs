@@ -6006,7 +6006,7 @@ fn mjconfig_snapshot_response(state: &ServerState, notice: Option<String>) -> Mj
         &missing_authentication,
     );
 
-    // A registered platform adapter (e.g. Anvil on Android) is the only
+    // A registered platform adapter (e.g. Draupnir on Android) is the only
     // team: show it as the fixed selection instead of offering built-in
     // presets that cannot run on this build.
     let team = match roster::external_adapter() {

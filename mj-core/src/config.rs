@@ -2258,24 +2258,24 @@ kimi = "disabled"
         config
             .acp
             .policies
-            .insert("anvil".to_string(), AcpServerPolicy::Enabled);
-        config.agent.acp_source = Some("anvil".to_string());
-        config.agent.acp_priority = vec!["anvil".to_string(), "codex-acp".to_string()];
+            .insert("draupnir".to_string(), AcpServerPolicy::Enabled);
+        config.agent.acp_source = Some("draupnir".to_string());
+        config.agent.acp_priority = vec!["draupnir".to_string(), "codex-acp".to_string()];
         config.agent.model = "gemini-3-pro".to_string();
 
-        config.drop_retired_sources_except(Some("anvil"));
-        assert_eq!(config.agent.acp_source.as_deref(), Some("anvil"));
+        config.drop_retired_sources_except(Some("draupnir"));
+        assert_eq!(config.agent.acp_source.as_deref(), Some("draupnir"));
         assert_eq!(
             config.agent.acp_priority,
-            vec!["anvil".to_string(), "codex-acp".to_string()]
+            vec!["draupnir".to_string(), "codex-acp".to_string()]
         );
-        assert!(config.acp.policies.contains_key("anvil"));
+        assert!(config.acp.policies.contains_key("draupnir"));
         // An external adapter may serve any provider, so the pin stays.
         assert_eq!(config.agent.model, "gemini-3-pro");
 
         config.drop_retired_sources_except(None);
         assert_eq!(config.agent.acp_source, None);
-        assert!(!config.acp.policies.contains_key("anvil"));
+        assert!(!config.acp.policies.contains_key("draupnir"));
         assert_eq!(config.agent.model, "auto");
     }
 

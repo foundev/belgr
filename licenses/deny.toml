@@ -40,7 +40,7 @@ exceptions = [
     { crate = "belgr", allow = ["GPL-3.0-only"] },
     { crate = "belgr-mj-core", allow = ["GPL-3.0-only"] },
     { crate = "belgr-mj-agents", allow = ["GPL-3.0-only"] },
-    { crate = "belgr-mj-anvil", allow = ["GPL-3.0-only"] },
+    { crate = "belgr-mj-draupnir", allow = ["GPL-3.0-only"] },
     { crate = "belgr-mj-desktop", allow = ["GPL-3.0-only"] },
     { crate = "belgr-mj-remote", allow = ["GPL-3.0-only"] },
     { crate = "belgr-mj-tui", allow = ["GPL-3.0-only"] },

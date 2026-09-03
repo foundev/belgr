@@ -46,7 +46,7 @@ jobs:
         # Workspace crates keep a local license copy so source distributions
         # remain self-contained; GitHub Release archives ship the root license
         # and third-party notices.
-        for member in mj-core mj-agents mj-anvil mj-tui mj-remote mj-desktop voice-worker; do
+        for member in mj-core mj-agents mj-draupnir mj-tui mj-remote mj-desktop voice-worker; do
           diff -u LICENSE "$member/LICENSE"
         done
 
@@ -147,14 +147,14 @@ jobs:
         targets: aarch64-linux-android
         components: clippy
 
-    # mj-anvil is out of the workspace default-members (it only ships in the
+    # mj-draupnir is out of the workspace default-members (it only ships in the
     # Android binary), so the host matrix job never builds it; its lint and
     # test gate lives here instead.
-    - name: Lint Anvil crate
-      run: cargo clippy --locked -p belgr-mj-anvil --all-targets -- -D warnings
+    - name: Lint Draupnir crate
+      run: cargo clippy --locked -p belgr-mj-draupnir --all-targets -- -D warnings
 
-    - name: Test Anvil crate
-      run: cargo test --locked -p belgr-mj-anvil
+    - name: Test Draupnir crate
+      run: cargo test --locked -p belgr-mj-draupnir
 
     - name: Setup Android NDK
       id: setup-ndk

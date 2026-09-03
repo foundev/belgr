@@ -1,40 +1,39 @@
-//! Anvil adapter registration for the Android build. Every Anvil-specific
-//! fact lives in this crate; `belgr-mj-core` only ever sees a generic external
-//! adapter.
+//! Draupnir adapter registration. Every Draupnir-specific fact lives in this
+//! crate; `belgr-mj-core` only ever sees a generic external adapter.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use mj_core::roster::ExternalAdapter;
 
-/// The ACP source id Anvil registers and persists under.
-pub const SOURCE_ID: &str = "anvil";
+/// The ACP source id Draupnir registers and persists under.
+pub const SOURCE_ID: &str = "draupnir";
 
-/// Register Anvil as the implicit platform team. An `MJ_ANVIL_PATH` override
-/// pointing at a local binary wins; otherwise the adapter launches the `anvil`
-/// binary from `PATH`. A dangling override is honored as-is so it fails loudly
-/// at launch instead of being silently replaced.
+/// Register Draupnir as the implicit platform team. An `MJ_DRAUPNIR_PATH`
+/// override pointing at a local binary wins; otherwise the adapter launches
+/// the `draupnir` binary from `PATH`. A dangling override is honored as-is so
+/// it fails loudly at launch instead of being silently replaced.
 pub fn register() {
     mj_core::roster::register_external_adapter(adapter(
-        std::env::var_os("MJ_ANVIL_PATH").map(PathBuf::from),
+        std::env::var_os("MJ_DRAUPNIR_PATH").map(PathBuf::from),
     ));
 }
 
 fn adapter(override_path: Option<PathBuf>) -> ExternalAdapter {
     let (command, args, evidence) = match override_path {
         Some(path) => {
-            let evidence = format!("MJ_ANVIL_PATH: {}", path.display());
+            let evidence = format!("MJ_DRAUPNIR_PATH: {}", path.display());
             (path, Vec::new(), evidence)
         }
         None => (
-            PathBuf::from("anvil"),
+            PathBuf::from("draupnir"),
             Vec::new(),
-            "anvil (PATH)".to_string(),
+            "draupnir (PATH)".to_string(),
         ),
     };
     ExternalAdapter {
         id: SOURCE_ID.to_string(),
-        label: "Anvil".to_string(),
+        label: "Draupnir".to_string(),
         evidence,
         command,
         args,
@@ -47,20 +46,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_launch_uses_anvil_from_path() {
+    fn default_launch_uses_draupnir_from_path() {
         let found = adapter(None);
-        assert_eq!(found.command, PathBuf::from("anvil"));
+        assert_eq!(found.command, PathBuf::from("draupnir"));
         assert!(found.args.is_empty());
         assert_eq!(found.id, SOURCE_ID);
-        assert_eq!(found.evidence, "anvil (PATH)");
+        assert_eq!(found.evidence, "draupnir (PATH)");
     }
 
     #[test]
     fn override_path_replaces_path_lookup() {
-        let found = adapter(Some(PathBuf::from("/opt/anvil/anvil")));
-        assert_eq!(found.command, PathBuf::from("/opt/anvil/anvil"));
+        let found = adapter(Some(PathBuf::from("/opt/draupnir/draupnir")));
+        assert_eq!(found.command, PathBuf::from("/opt/draupnir/draupnir"));
         assert!(found.args.is_empty());
-        assert!(found.evidence.starts_with("MJ_ANVIL_PATH"));
+        assert!(found.evidence.starts_with("MJ_DRAUPNIR_PATH"));
     }
 
     #[test]

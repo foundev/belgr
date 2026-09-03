@@ -1,13 +1,14 @@
 # Belgr
 
-Belgr (`belgr`) is a terminal client for **[Anvil](https://github.com/BrokkAi/anvil)**,
-Brokk's portable [ACP](https://agentclientprotocol.com/get-started/introduction) coding
-agent. It is a fork of [Mjolnir](https://github.com/BrokkAi/mjolnir) with Anvil as the
-only ACP route on every platform — the Codex and Claude adapter plumbing is inert and
-being removed.
+Belgr (`belgr`) is a terminal client for **[Draupnir](https://github.com/foundev/draupnir)**,
+our fork of Brokk's portable [Anvil](https://github.com/BrokkAi/anvil)
+[ACP](https://agentclientprotocol.com/get-started/introduction) coding agent. It is a
+fork of [Mjolnir](https://github.com/BrokkAi/mjolnir) with Draupnir as the only ACP
+route on every platform — the Codex and Claude adapter plumbing is inert and being
+removed.
 
 In the myth, Brokk worked the bellows (*belgr*) while Eitri forged Mjolnir. Belgr keeps
-Anvil's fire going.
+Draupnir's fire going.
 
 ## What it keeps from Mjolnir
 
@@ -19,16 +20,16 @@ Anvil's fire going.
 
 ## What is different
 
-- **Anvil only.** Anvil registers as the implicit platform team at startup on every
-  target (Mjolnir did this only on Android). There is no team selection; Codex and
-  Claude routes never appear in the inventory.
+- **Draupnir only.** Draupnir registers as the implicit platform team at startup on
+  every target (Mjolnir did this only on Android). There is no team selection; Codex
+  and Claude routes never appear in the inventory.
 - **Separate install identity.** Binary `belgr`, config in `~/.config/belgr/`, project
   marker dir `.belgr/` — a Belgr install never collides with a Mjolnir install on the
   same machine.
 - **Distribution**: versioned binary archives are released only through GitHub.
 
-Anvil launches through the `anvil` binary on `PATH`; set `MJ_ANVIL_PATH` to use a
-specific local Anvil binary instead.
+Draupnir launches through the `draupnir` binary on `PATH`; set `MJ_DRAUPNIR_PATH` to
+use a specific local Draupnir binary instead.
 
 ## Build
 

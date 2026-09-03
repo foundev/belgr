@@ -62,7 +62,7 @@ use crate::ui::HeaderLabels;
 use crate::worktree::CreatedWorktree;
 
 #[derive(Debug, Parser)]
-#[command(name = "belgr", version, about = "Interactive ACP chat TUI for Anvil")]
+#[command(name = "belgr", version, about = "Interactive ACP chat TUI for Draupnir")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -583,9 +583,9 @@ async fn main() -> Result<()> {
     if let Some(Commands::McpBridge(args)) = &cli.command {
         return mj_core::mcp_bridge::run_bridge(&args.addr).await;
     }
-    // Register Anvil — Belgr's only ACP route — before config load or roster
-    // resolution.
-    mj_anvil::register();
+    // Register Draupnir — Belgr's only ACP route — before config load or
+    // roster resolution.
+    mj_draupnir::register();
     let debug_file = cli.log_file.clone();
     let snapshot_exclusions =
         configured_snapshot_exclusions(cli.log_file.as_deref(), cli.agent_stderr.as_deref());

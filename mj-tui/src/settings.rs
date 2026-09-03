@@ -2750,7 +2750,7 @@ mod tests {
         // appear as configurable.
         assert!(is_configurable_acp_server("codex-acp"));
         assert!(is_configurable_acp_server("claude-acp"));
-        assert!(!is_configurable_acp_server("anvil"));
+        assert!(!is_configurable_acp_server("draupnir"));
         assert!(!is_configurable_acp_server("sidecar"));
     }
 

@@ -3,43 +3,43 @@ name = "belgr"
 version.workspace = true
 edition = "2024"
 rust-version = "1.97"
-description = "Terminal client for the Anvil Agent Client Protocol (ACP) coding agent"
+description = "Terminal client for the Draupnir Agent Client Protocol (ACP) coding agent"
 license = "GPL-3.0-only"
 repository = "https://github.com/foundev/belgr"
 publish = false
 
 [workspace]
-members = ["mj-core", "mj-agents", "mj-anvil", "mj-tui", "mj-desktop", "mj-remote", "voice-worker"]
+members = ["mj-core", "mj-agents", "mj-draupnir", "mj-tui", "mj-desktop", "mj-remote", "voice-worker"]
 # Bare `cargo test`/`cargo clippy`/`cargo build` must cover the binary and every
 # crate its code was extracted into, or those crates lose their lint and test
 # gate. `mj-desktop` and `voice-worker` keep their own CI jobs because their
 # tests need native desktop and audio dependencies; the default `mj` binary
 # still links the desktop shell on supported desktop platforms.
-# `mj-anvil` ships in every Belgr binary (Anvil is the only route), so it
+# `mj-draupnir` ships in every Belgr binary (Draupnir is the only route), so it
 # sits in the default set with the rest.
-default-members = [".", "mj-core", "mj-agents", "mj-anvil", "mj-tui", "mj-remote"]
+default-members = [".", "mj-core", "mj-agents", "mj-draupnir", "mj-tui", "mj-remote"]
 
 # Single source of truth for the release version; workspace crates inherit it, so
 # they cannot drift apart (RELEASING.md requires them to match).
 [workspace.package]
-version = "1.17.1"
+version = "1.18.0"
 edition = "2024"
 rust-version = "1.97"
 license = "GPL-3.0-only"
 repository = "https://github.com/foundev/belgr"
 homepage = "https://github.com/foundev/belgr"
-keywords = ["belgr", "anvil", "acp", "ai", "agents"]
+keywords = ["belgr", "draupnir", "acp", "ai", "agents"]
 categories = ["development-tools", "command-line-utilities"]
 
 # Keep every same-release workspace dependency requirement here, so release
 # bumps change the internal compatibility boundary in one manifest.
 [workspace.dependencies]
-mj-core = { package = "belgr-mj-core", path = "mj-core", version = "1.17.1" }
-mj-agents = { package = "belgr-mj-agents", path = "mj-agents", version = "1.17.1" }
-mj-anvil = { package = "belgr-mj-anvil", path = "mj-anvil", version = "1.17.1" }
-mj-tui = { package = "belgr-mj-tui", path = "mj-tui", version = "1.17.1" }
-mj-remote = { package = "belgr-mj-remote", path = "mj-remote", version = "1.17.1" }
-mj-desktop = { package = "belgr-mj-desktop", path = "mj-desktop", version = "1.17.1" }
+mj-core = { package = "belgr-mj-core", path = "mj-core", version = "1.18.0" }
+mj-agents = { package = "belgr-mj-agents", path = "mj-agents", version = "1.18.0" }
+mj-draupnir = { package = "belgr-mj-draupnir", path = "mj-draupnir", version = "1.18.0" }
+mj-tui = { package = "belgr-mj-tui", path = "mj-tui", version = "1.18.0" }
+mj-remote = { package = "belgr-mj-remote", path = "mj-remote", version = "1.18.0" }
+mj-desktop = { package = "belgr-mj-desktop", path = "mj-desktop", version = "1.18.0" }
 
 [[bin]]
 name = "belgr"
@@ -54,8 +54,8 @@ desktop-app = ["dep:mj-desktop"]
 [dependencies]
 mj-core.workspace = true
 mj-agents.workspace = true
-# Anvil is Belgr's only ACP route, on every platform.
-mj-anvil.workspace = true
+# Draupnir is Belgr's only ACP route, on every platform.
+mj-draupnir.workspace = true
 mj-tui.workspace = true
 agent-client-protocol = { version = "2", features = ["unstable_session_fork", "unstable_end_turn_token_usage", "unstable_elicitation", "unstable_auth_methods"] }
 anyhow = "1"

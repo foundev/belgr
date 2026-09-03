@@ -1416,7 +1416,10 @@ mod tests {
     #[test]
     fn auto_primary_falls_back_to_an_external_model_when_nothing_is_ranked() {
         let discovery = Discovery {
-            available: vec![external_role("anvil-coder"), external_role("anvil-mini")],
+            available: vec![
+                external_role("draupnir-coder"),
+                external_role("draupnir-mini"),
+            ],
             adapter_errors: HashMap::new(),
             session_config: HashMap::new(),
         };
@@ -1436,7 +1439,7 @@ mod tests {
         .expect("external models keep Auto launchable");
 
         assert_eq!(roster.primary.launch.kind, AdapterKind::External);
-        assert_eq!(roster.primary.model.model, "anvil-coder");
+        assert_eq!(roster.primary.model.model, "draupnir-coder");
     }
 
     #[test]
@@ -2292,7 +2295,7 @@ mod tests {
 
     #[test]
     fn platform_adapter_resets_stale_pins_from_other_builds() {
-        // On a platform build (e.g. Android/Anvil) the external server is
+        // On a platform build (e.g. Android/Draupnir) the external server is
         // the only probed route. A pin whose name maps to a built-in
         // adapter (here openai -> codex-acp) must still reset to auto when
         // the probe didn't offer it — codex-acp is never in this inventory,

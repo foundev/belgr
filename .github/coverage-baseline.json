@@ -15,7 +15,7 @@
     },
     "mj-tui/src/onboarding.rs": {
       "minimum": 57.45,
-      "reason": "Belgr has no team-selection onboarding; the retained compatibility branches are unreachable with its registered Anvil adapter."
+      "reason": "Belgr has no team-selection onboarding; the retained compatibility branches are unreachable with its registered Draupnir adapter."
     },
     "mj-tui/src/session.rs": {
       "minimum": 64.0,

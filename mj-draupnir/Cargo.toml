@@ -1,9 +1,9 @@
 [package]
-name = "belgr-mj-anvil"
+name = "belgr-mj-draupnir"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Anvil ACP sidecar discovery for Mjolnir on Android"
+description = "Draupnir ACP sidecar discovery for Mjolnir on Android"
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

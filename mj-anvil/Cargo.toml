@@ -1,0 +1,16 @@
+[package]
+name = "belgr-mj-anvil"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Anvil ACP sidecar discovery for Mjolnir on Android"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+publish = false
+
+[dependencies]
+mj-core.workspace = true

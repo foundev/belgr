@@ -5860,27 +5860,19 @@ fn mjconfig_snapshot_response(state: &ServerState, notice: Option<String>) -> Mj
         })
         .collect();
 
-    let external_id = roster::external_adapter().map(|external| external.id.as_str());
     let servers = inventory
         .servers
         .iter()
-        .filter(|server| {
-            crate::settings::is_configurable_acp_server(&server.id)
-                || external_id == Some(server.id.as_str())
-        })
+        .filter(|server| crate::settings::is_configurable_acp_server(&server.id))
         .map(|server| {
-            // A platform adapter cannot be disabled, so its row offers only
-            // its current policy; the panel then shows the adapter without
-            // pretending it can be changed.
-            let allowed: &[config::AcpServerPolicy] = if external_id == Some(server.id.as_str()) {
-                &[config::AcpServerPolicy::Auto]
-            } else {
-                &[
-                    config::AcpServerPolicy::Auto,
-                    config::AcpServerPolicy::Enabled,
-                    config::AcpServerPolicy::Disabled,
-                ]
-            };
+            // Every configurable server offers all three policies: the
+            // policy switches the platform team (Anvil or Draupnir) and opts
+            // registry agents in and out.
+            let allowed: &[config::AcpServerPolicy] = &[
+                config::AcpServerPolicy::Auto,
+                config::AcpServerPolicy::Enabled,
+                config::AcpServerPolicy::Disabled,
+            ];
             MjServerEntry {
                 id: server.id.clone(),
                 label: server.label.clone(),
@@ -6006,10 +5998,10 @@ fn mjconfig_snapshot_response(state: &ServerState, notice: Option<String>) -> Mj
         &missing_authentication,
     );
 
-    // A registered platform adapter (e.g. Draupnir on Android) is the only
-    // team: show it as the fixed selection instead of offering built-in
-    // presets that cannot run on this build.
-    let team = match roster::external_adapter() {
+    // A selected platform adapter (Draupnir or Anvil) is the implicit team:
+    // show it as the fixed selection instead of offering built-in presets.
+    // Disabling every platform route falls back to the built-in teams.
+    let team = match roster::platform_adapter(config) {
         Some(external) => MjTeamPanel {
             selected: Some(external.id.clone()),
             presets: vec![MjTeamPresetEntry::from_team_config(
@@ -6112,7 +6104,7 @@ fn missing_setup_authentication(
     runtime: &MjConfigRuntime,
     config: &config::Config,
 ) -> Vec<mj_core::auth::AuthVendor> {
-    if roster::external_adapter().is_some() {
+    if roster::platform_adapter(config).is_some() {
         return Vec::new();
     }
     missing_setup_authentication_with(config, |vendor| runtime.credentials(vendor).available())
@@ -6247,7 +6239,7 @@ fn mjconfig_apply_edits(
 ) -> std::result::Result<Vec<String>, (StatusCode, String)> {
     let bad_request = |message: String| (StatusCode::UNPROCESSABLE_ENTITY, message);
     if let Some(team) = request.team {
-        if let Some(external) = roster::external_adapter() {
+        if let Some(external) = roster::platform_adapter(config) {
             return Err(bad_request(format!(
                 "the team is fixed to {} on this platform",
                 external.label

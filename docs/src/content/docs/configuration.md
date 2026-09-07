@@ -191,13 +191,19 @@ Version 2 and earlier are no longer supported and start from fresh defaults.
 
 ## ACP policy
 
-The ACP Servers tab exposes the built-in Codex and Claude adapters, which
-can stay on Auto or be explicitly enabled or disabled.
+The ACP Servers tab exposes the built-in Codex and Claude adapters, the
+platform routes (Anvil and Draupnir), and every ACP-registry agent with a
+distribution for this platform. Each can stay on Auto or be explicitly
+enabled or disabled. Disabling the preferred platform route switches the
+implicit team to the other platform route; registry agents only launch while
+explicitly enabled.
 
 ```toml
 [acp.policies]
 codex-acp = "auto"
 claude-acp = "disabled"
+draupnir = "auto"
+gemini = "enabled"
 ```
 
 Adapters inherit Mjolnir's environment and use the workspace as their

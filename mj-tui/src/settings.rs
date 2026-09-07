@@ -1349,7 +1349,7 @@ fn draw_team(
     editor: &SettingsEditor,
     theme: TerminalTheme,
 ) {
-    if let Some(external) = crate::roster::external_adapter() {
+    if let Some(external) = crate::roster::platform_adapter(&editor.config) {
         let lines = vec![
             Line::styled(
                 "Belgr automatically reviews generated code before returning the result.",
@@ -2744,10 +2744,10 @@ mod tests {
     }
 
     #[test]
-    fn only_builtin_servers_are_configurable() {
-        // A platform adapter is the sole route on its build, so offering a
-        // Disabled toggle for it would break every launch; it must never
-        // appear as configurable.
+    fn builtin_and_registered_servers_are_configurable() {
+        // Nothing registered adapters in the test process, so their ids stay
+        // non-configurable here; the platform crates cover the registered
+        // path, where the policy switches Anvil and Draupnir.
         assert!(is_configurable_acp_server("codex-acp"));
         assert!(is_configurable_acp_server("claude-acp"));
         assert!(!is_configurable_acp_server("draupnir"));

@@ -48,9 +48,10 @@ Belgr releases only through GitHub Releases. A successful tagged build attaches
 the platform archives and their SHA-256 sidecars to the generated release; no
 crates.io, npm, PyPI, Homebrew, or other package-registry publishing runs.
 
-The `draupnir` binary used to launch Draupnir is a runtime dependency of Belgr, not a
-Belgr distribution channel. Release validation should ensure it is available on
-the test machine's `PATH`.
+The `draupnir` binary used to launch Draupnir (and `anvil` for Anvil) is a
+runtime dependency of Belgr, not a Belgr distribution channel. Release
+validation should ensure at least one is available on the test machine's
+`PATH`.
 
 ## Discord announcement
 

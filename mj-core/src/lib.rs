@@ -1,6 +1,7 @@
 //! Frontend-neutral runtime and session kernel for Belgr.
 
 pub mod acp;
+pub mod agent_install;
 pub mod agent_usage;
 pub mod archive;
 pub mod auth;
@@ -26,6 +27,7 @@ pub mod paths;
 pub mod probe;
 pub mod provider_usage;
 pub mod pull_request;
+pub mod registry;
 pub mod roster;
 mod roster_types;
 pub mod session;

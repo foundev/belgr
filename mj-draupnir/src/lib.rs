@@ -9,17 +9,15 @@ use mj_core::roster::ExternalAdapter;
 /// The ACP source id Draupnir registers and persists under.
 pub const SOURCE_ID: &str = "draupnir";
 
-/// Register Draupnir as the implicit platform team. An `MJ_DRAUPNIR_PATH`
+/// The platform adapter that launches Draupnir. An `MJ_DRAUPNIR_PATH`
 /// override pointing at a local binary wins; otherwise the adapter launches
 /// the `draupnir` binary from `PATH`. A dangling override is honored as-is so
 /// it fails loudly at launch instead of being silently replaced.
-pub fn register() {
-    mj_core::roster::register_external_adapter(adapter(
-        std::env::var_os("MJ_DRAUPNIR_PATH").map(PathBuf::from),
-    ));
+pub fn adapter() -> ExternalAdapter {
+    adapter_from_path(std::env::var_os("MJ_DRAUPNIR_PATH").map(PathBuf::from))
 }
 
-fn adapter(override_path: Option<PathBuf>) -> ExternalAdapter {
+fn adapter_from_path(override_path: Option<PathBuf>) -> ExternalAdapter {
     let (command, args, evidence) = match override_path {
         Some(path) => {
             let evidence = format!("MJ_DRAUPNIR_PATH: {}", path.display());
@@ -38,6 +36,8 @@ fn adapter(override_path: Option<PathBuf>) -> ExternalAdapter {
         command,
         args,
         env: HashMap::new(),
+        platform: true,
+        install: None,
     }
 }
 
@@ -47,16 +47,18 @@ mod tests {
 
     #[test]
     fn default_launch_uses_draupnir_from_path() {
-        let found = adapter(None);
+        let found = adapter_from_path(None);
         assert_eq!(found.command, PathBuf::from("draupnir"));
         assert!(found.args.is_empty());
         assert_eq!(found.id, SOURCE_ID);
         assert_eq!(found.evidence, "draupnir (PATH)");
+        assert!(found.platform);
+        assert!(found.install.is_none());
     }
 
     #[test]
     fn override_path_replaces_path_lookup() {
-        let found = adapter(Some(PathBuf::from("/opt/draupnir/draupnir")));
+        let found = adapter_from_path(Some(PathBuf::from("/opt/draupnir/draupnir")));
         assert_eq!(found.command, PathBuf::from("/opt/draupnir/draupnir"));
         assert!(found.args.is_empty());
         assert!(found.evidence.starts_with("MJ_DRAUPNIR_PATH"));
@@ -64,7 +66,7 @@ mod tests {
 
     #[test]
     fn registered_adapter_becomes_the_implicit_platform_team() {
-        mj_core::roster::register_external_adapter(adapter(None));
+        mj_core::roster::register_external_adapters(vec![adapter_from_path(None)]);
 
         let mut config = mj_core::config::Config::default();
         assert!(mj_core::config::has_valid_team(&config));
@@ -75,7 +77,14 @@ mod tests {
         assert!(config.agent.discrete_review);
 
         let inventory = mj_core::roster::discover_inventory(&config);
-        assert_eq!(inventory.servers.len(), 1);
+        let server = inventory
+            .servers
+            .iter()
+            .find(|server| server.id == SOURCE_ID)
+            .expect("draupnir in inventory");
+        assert!(server.selected);
+        // Built-in routes may surface too when the host is signed in, but the
+        // platform adapter must always lead the inventory.
         assert_eq!(inventory.servers[0].id, SOURCE_ID);
     }
 }

@@ -578,6 +578,36 @@ fn run_memory_command(command: MemoryCommand, cwd: &Path) -> Result<()> {
     }
 }
 
+/// Whether a platform adapter's launch command plausibly exists: absolute
+/// paths (e.g. an `MJ_*_PATH` override) are honored as-is, and bare names
+/// are looked up on `PATH`.
+fn command_is_located(command: &Path) -> bool {
+    if command.is_absolute() {
+        return true;
+    }
+    let Some(paths) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&paths).any(|dir| dir.join(command).is_file())
+}
+
+/// Register the ACP routes this process can reach. The platform team is
+/// Draupnir unless only Anvil is actually installed; the policy in
+/// `/mjconfig` can still switch between the two. Registry agents are opt-in
+/// extras, so a failed registry load never blocks startup.
+async fn register_acp_adapters() {
+    let draupnir = mj_draupnir::adapter();
+    let anvil = mj_anvil::adapter();
+    let mut adapters =
+        if !command_is_located(&draupnir.command) && command_is_located(&anvil.command) {
+            vec![anvil, draupnir]
+        } else {
+            vec![draupnir, anvil]
+        };
+    adapters.extend(mj_core::registry::load().await.adapters());
+    mj_core::roster::register_external_adapters(adapters);
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -587,9 +617,10 @@ async fn main() -> Result<()> {
     if let Some(Commands::McpBridge(args)) = &cli.command {
         return mj_core::mcp_bridge::run_bridge(&args.addr).await;
     }
-    // Register Draupnir — Belgr's only ACP route — before config load or
-    // roster resolution.
-    mj_draupnir::register();
+    // Register Belgr's ACP routes — the platform team (Draupnir or Anvil)
+    // plus every agent from the ACP registry — before config load or roster
+    // resolution.
+    register_acp_adapters().await;
     let debug_file = cli.log_file.clone();
     let snapshot_exclusions =
         configured_snapshot_exclusions(cli.log_file.as_deref(), cli.agent_stderr.as_deref());

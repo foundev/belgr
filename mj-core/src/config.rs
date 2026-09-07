@@ -619,20 +619,31 @@ impl TeamPreset {
     }
 }
 
-/// Whether this build has a complete team route. A registered external
-/// adapter is the embedding platform's implicit team; otherwise one of the
-/// user-selectable built-in presets must be configured.
+/// Whether this build has a complete team route. A selected platform adapter
+/// (Anvil or Draupnir) is the embedding platform's implicit team; otherwise
+/// an explicitly enabled registry agent or one of the user-selectable built-in
+/// presets must be configured.
 pub fn has_valid_team(config: &Config) -> bool {
-    has_valid_team_with_external(
-        config,
-        crate::roster::external_adapter().map(|adapter| adapter.id.as_str()),
-    )
+    let platform = crate::roster::platform_adapter(config).map(|adapter| adapter.id.as_str());
+    let enabled_registry = crate::roster::registered_adapters()
+        .iter()
+        .filter(|adapter| {
+            !adapter.platform && config.acp.policy(&adapter.id) == AcpServerPolicy::Enabled
+        })
+        .map(|adapter| adapter.id.as_str())
+        .collect::<Vec<_>>();
+    has_valid_team_with_external(config, platform, &enabled_registry)
 }
 
-fn has_valid_team_with_external(config: &Config, external_id: Option<&str>) -> bool {
-    // A registered platform adapter can never be disabled, so its presence
-    // alone makes the team valid.
-    external_id.is_some() || TeamPreset::from_config(config).is_some()
+fn has_valid_team_with_external(
+    config: &Config,
+    platform: Option<&str>,
+    enabled_registry: &[&str],
+) -> bool {
+    // The platform team is selected by policy, so its presence alone makes
+    // the team valid; a disabled platform leaves enabled registry agents
+    // and built-in presets.
+    platform.is_some() || !enabled_registry.is_empty() || TeamPreset::from_config(config).is_some()
 }
 
 /// The team to select when the user has not chosen one, decided by what the
@@ -641,7 +652,7 @@ fn has_valid_team_with_external(config: &Config, external_id: Option<&str>) -> b
 /// provider's own team. `None` when neither is usable — nothing to default
 /// to — or when an embedding platform owns its own implicit team.
 fn default_team(config: &Config) -> Option<TeamPreset> {
-    if crate::roster::external_adapter().is_some() {
+    if crate::roster::platform_adapter(config).is_some() {
         return None;
     }
     default_team_for(config, &crate::roster::signed_in_sources())
@@ -1129,7 +1140,9 @@ impl SubagentsConfig {
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct AcpConfig {
-    /// Policy overrides for built-in auto-detected servers. Missing means Auto.
+    /// Policy overrides for ACP servers: the built-ins, the platform adapters
+    /// (Anvil, Draupnir — the policy switches which one owns the implicit
+    /// team), and the registry agents. Missing means Auto.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub policies: BTreeMap<String, AcpServerPolicy>,
 }
@@ -1219,19 +1232,19 @@ impl Config {
     /// A seat pinned to a retired source, or to a model whose provider no
     /// built-in adapter serves, falls back to automatic selection.
     fn drop_retired_sources(&mut self) {
-        self.drop_retired_sources_except(
-            crate::roster::external_adapter().map(|adapter| adapter.id.as_str()),
-        );
+        let registered = crate::roster::registered_adapters()
+            .iter()
+            .map(|adapter| adapter.id.as_str())
+            .collect::<Vec<_>>();
+        self.drop_retired_sources_except(&registered);
     }
 
-    fn drop_retired_sources_except(&mut self, external_id: Option<&str>) {
+    fn drop_retired_sources_except(&mut self, external_ids: &[&str]) {
         let mut known = DEFAULT_ACP_PRIORITY
             .iter()
             .map(|id| (*id).to_string())
             .collect::<std::collections::HashSet<_>>();
-        if let Some(id) = external_id {
-            known.insert(id.to_string());
-        }
+        known.extend(external_ids.iter().map(|id| id.to_string()));
         let retired_model = |model: &str| {
             if matches!(model, "auto" | DISABLED_MODEL | "none") {
                 return false;
@@ -1240,9 +1253,9 @@ impl Config {
             if model.starts_with("custom/") {
                 return true;
             }
-            // An external adapter may advertise models from any provider, so
-            // no pin is conclusively dead while one is registered.
-            if external_id.is_some() {
+            // Registered adapters may advertise models from any provider,
+            // so no pin is conclusively dead while one is registered.
+            if !external_ids.is_empty() {
                 return false;
             }
             // A model with no derivable provider may be an adapter-advertised
@@ -1281,7 +1294,7 @@ impl Config {
     }
 
     pub fn set_acp_server_policy(&mut self, id: &str, policy: AcpServerPolicy) -> bool {
-        if matches!(id, "codex-acp" | "claude-acp") {
+        if matches!(id, "codex-acp" | "claude-acp") || crate::roster::is_registered_adapter(id) {
             if policy == AcpServerPolicy::Auto {
                 self.acp.policies.remove(id);
             } else {
@@ -1565,28 +1578,39 @@ impl Config {
         true
     }
 
-    /// Bind every seat to the embedding platform's registered adapter.
+    /// Bind every seat to the platform adapter that owns the implicit team.
     /// Explicit model choices remain intact; only their runtime route changes.
     pub fn apply_registered_external_team(&mut self) -> bool {
-        let Some(source_id) = crate::roster::external_adapter().map(|adapter| adapter.id.clone())
-        else {
+        let Some(platform) = crate::roster::platform_adapter(self) else {
             return false;
         };
-        self.apply_external_team_routes(&source_id);
+        self.apply_external_team_routes(&platform.id);
         true
     }
 
     fn apply_external_team_routes(&mut self, source_id: &str) {
-        // The embedding platform owns this implicit team. Do not persist a
+        // The embedding platform owns the implicit team. Do not persist a
         // built-in preset that cannot be selected on that platform.
         self.team = None;
-        self.agent.acp_source = Some(source_id.to_string());
-        self.review.acp_source = Some(source_id.to_string());
-        self.subagents.acp_source = Some(source_id.to_string());
-        // The platform adapter is the only route on this build, so a
-        // Disabled policy (written by an older build or a synced config)
-        // would make every launch fail with nothing selectable.
-        self.acp.policies.remove(source_id);
+        // Seats already routed to a source this build knows keep their pin —
+        // the resolved platform adapter, a registry agent, or a built-in — so
+        // explicit routing survives. A pin on a different platform adapter
+        // (the route the user just disabled to switch teams) rebinds to the
+        // resolved one; dangling or unset pins rebind too.
+        let known = |id: &str| {
+            matches!(id, "codex-acp" | "claude-acp")
+                || (crate::roster::is_registered_adapter(id)
+                    && (!crate::roster::is_platform_adapter(id) || id == source_id))
+        };
+        for seat in [
+            &mut self.agent.acp_source,
+            &mut self.review.acp_source,
+            &mut self.subagents.acp_source,
+        ] {
+            if !seat.as_deref().is_some_and(known) {
+                *seat = Some(source_id.to_string());
+            }
+        }
     }
 }
 
@@ -2263,7 +2287,7 @@ kimi = "disabled"
         config.agent.acp_priority = vec!["draupnir".to_string(), "codex-acp".to_string()];
         config.agent.model = "gemini-3-pro".to_string();
 
-        config.drop_retired_sources_except(Some("draupnir"));
+        config.drop_retired_sources_except(&["draupnir"]);
         assert_eq!(config.agent.acp_source.as_deref(), Some("draupnir"));
         assert_eq!(
             config.agent.acp_priority,
@@ -2273,7 +2297,7 @@ kimi = "disabled"
         // An external adapter may serve any provider, so the pin stays.
         assert_eq!(config.agent.model, "gemini-3-pro");
 
-        config.drop_retired_sources_except(None);
+        config.drop_retired_sources_except(&[]);
         assert_eq!(config.agent.acp_source, None);
         assert!(!config.acp.policies.contains_key("draupnir"));
         assert_eq!(config.agent.model, "auto");
@@ -2289,7 +2313,7 @@ kimi = "disabled"
         config.review.model = "review-model".to_string();
         config.subagents.model = "worker-model".to_string();
 
-        assert!(has_valid_team_with_external(&config, Some("sidecar")));
+        assert!(has_valid_team_with_external(&config, Some("sidecar"), &[]));
         config.apply_external_team_routes("sidecar");
 
         assert_eq!(config.agent.acp_source.as_deref(), Some("sidecar"));
@@ -2409,11 +2433,11 @@ kimi = "disabled"
     }
 
     #[test]
-    fn platform_adapter_cannot_be_disabled() {
-        // The platform adapter is the only route on its build. A stale
-        // Disabled policy (older build, synced config) must neither
-        // invalidate the team nor survive route application — otherwise
-        // every launch fails with nothing selectable and no UI to fix it.
+    fn platform_policy_is_the_team_switch_and_survives_routing() {
+        // Both platform adapters (Anvil, Draupnir) ship together, so their
+        // policy is how the implicit team switches: route application must
+        // keep the saved policy instead of stripping it, and an enabled
+        // registry agent is a valid team even without a platform route.
         let mut config = Config {
             team: None,
             ..Config::default()
@@ -2423,13 +2447,16 @@ kimi = "disabled"
             .policies
             .insert("sidecar".to_string(), AcpServerPolicy::Disabled);
 
-        assert!(has_valid_team_with_external(&config, Some("sidecar")));
+        assert!(has_valid_team_with_external(&config, Some("sidecar"), &[]));
         config.apply_external_team_routes("sidecar");
-        assert_eq!(config.acp.policy("sidecar"), AcpServerPolicy::Auto);
+        assert_eq!(config.acp.policy("sidecar"), AcpServerPolicy::Disabled);
 
-        // And nothing can write a policy for a non-builtin server id.
-        assert!(!config.set_acp_server_policy("sidecar", AcpServerPolicy::Disabled));
-        assert!(config.acp.policies.is_empty());
+        // No platform route, but an enabled registry agent carries the team.
+        assert!(has_valid_team_with_external(&config, None, &["gemini"]));
+        assert!(!has_valid_team_with_external(&config, None, &[]));
+
+        // And nothing can write a policy for an id nothing registered.
+        assert!(!config.set_acp_server_policy("sidecar", AcpServerPolicy::Enabled));
     }
 
     #[test]
@@ -3482,7 +3509,7 @@ mode = "ask"
     }
 
     #[test]
-    fn server_policies_update_builtins_only() {
+    fn server_policies_update_builtins_and_registered_adapters() {
         let mut config = Config::default();
 
         assert!(config.set_acp_server_policy("codex-acp", AcpServerPolicy::Disabled));

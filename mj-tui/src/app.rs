@@ -2419,13 +2419,6 @@ impl AppState {
             );
             return;
         }
-        if crate::roster::external_adapter().is_some() {
-            self.record_status_message(
-                StatusKind::Info,
-                "team switching is unavailable while an external adapter is active",
-            );
-            return;
-        }
         // Reflect the team this run is actually on, including a default the
         // config file has not been asked to persist yet.
         let active = self
@@ -2435,7 +2428,18 @@ impl AppState {
             .map(|mut config| {
                 config.apply_default_team();
                 config
-            })
+            });
+        if active
+            .as_ref()
+            .is_some_and(|config| crate::roster::platform_adapter(config).is_some())
+        {
+            self.record_status_message(
+                StatusKind::Info,
+                "team switching is unavailable while a platform adapter is active",
+            );
+            return;
+        }
+        let active = active
             .as_ref()
             .and_then(crate::config::TeamPreset::from_config);
         let selected = active

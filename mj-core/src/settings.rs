@@ -11,14 +11,16 @@ use agent_client_protocol::schema::v1::{
 
 use crate::roster::{AcpInventory, AdapterKind, ModelChoice};
 
-/// Built-in ACP servers whose enablement belongs in `/mjconfig`.
+/// Built-in and registered ACP servers whose enablement belongs in
+/// `/mjconfig`.
 ///
-/// A platform adapter is deliberately absent: it can be the only launchable
-/// route on that build, so treating it as disableable would be misleading.
-pub const CONFIGURABLE_ACP_SERVERS: [&str; 2] = ["codex-acp", "claude-acp"];
-
+/// Both platform adapters (Anvil, Draupnir) are configurable when present:
+/// the policy is how the implicit team switches between them. Registry
+/// agents are configurable too — Auto never launches one, so enabling is
+/// the only way it joins discovery. Ids this build knows nothing about stay
+/// non-configurable.
 pub fn is_configurable_acp_server(id: &str) -> bool {
-    CONFIGURABLE_ACP_SERVERS.contains(&id)
+    matches!(id, "codex-acp" | "claude-acp") || crate::roster::is_registered_adapter(id)
 }
 
 /// Top-level `/mjconfig` panels shared by every interactive frontend.
@@ -352,10 +354,13 @@ mod tests {
     }
 
     #[test]
-    fn only_builtin_servers_are_configurable() {
+    fn builtin_and_registered_servers_are_configurable() {
         assert!(is_configurable_acp_server("codex-acp"));
         assert!(is_configurable_acp_server("claude-acp"));
+        // Nothing registered this adapter in the test process, so it stays
+        // non-configurable; the platform crates cover the registered path.
         assert!(!is_configurable_acp_server("draupnir"));
+        assert!(!is_configurable_acp_server("unknown-agent"));
     }
 
     #[test]

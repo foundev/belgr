@@ -23,8 +23,9 @@ pub use crate::roster_types::{
     ModelChoice, ModelRow as Row, ResolvedAgent, Roster, configure_permissions,
 };
 
-/// An ACP adapter contributed by the embedding binary (e.g. a platform-only
-/// sidecar). Registered once at startup, before the first roster resolution.
+/// An adapter contributed by the embedding binary: the implicit platform
+/// team (Anvil or Draupnir) plus every agent from the ACP registry.
+/// Registered once at startup, before the first roster resolution.
 #[derive(Debug, Clone)]
 pub struct ExternalAdapter {
     pub id: String,
@@ -32,20 +33,81 @@ pub struct ExternalAdapter {
     pub command: PathBuf,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
-    /// Shown in the adapter inventory, e.g. the path the binary was found at.
+    /// Shown in the adapter inventory, e.g. the resolved launch command.
     pub evidence: String,
+    /// Platform adapters (Anvil, Draupnir) form the implicit team and stay
+    /// selectable through their policy; registry agents are opt-in extras
+    /// that only run while explicitly enabled.
+    pub platform: bool,
+    /// Binary distribution that must be downloaded and extracted before the
+    /// command can launch. `None` for npx/uvx launches and for binaries
+    /// that are already on disk.
+    pub install: Option<PendingInstall>,
 }
 
-static EXTERNAL_ADAPTER: OnceLock<ExternalAdapter> = OnceLock::new();
-
-/// Register an adapter the embedding binary discovered. Only the first
-/// registration wins; call before the first roster resolution.
-pub fn register_external_adapter(adapter: ExternalAdapter) {
-    let _ = EXTERNAL_ADAPTER.set(adapter);
+/// A registry agent shipped as a platform binary archive that has not been
+/// installed yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingInstall {
+    pub version: String,
+    pub archive: String,
+    pub sha256: String,
+    pub cmd: String,
 }
 
-pub fn external_adapter() -> Option<&'static ExternalAdapter> {
-    EXTERNAL_ADAPTER.get()
+static REGISTERED_ADAPTERS: OnceLock<Vec<ExternalAdapter>> = OnceLock::new();
+
+/// Register the adapters the embedding binary ships. Only the first call
+/// wins and duplicate ids keep their first entry; call before the first
+/// roster resolution. Integration tests must register in their own test
+/// binary: this state is process-global and first-wins.
+pub fn register_external_adapters(adapters: Vec<ExternalAdapter>) {
+    let mut unique = Vec::new();
+    for adapter in adapters {
+        if !unique
+            .iter()
+            .any(|found: &ExternalAdapter| found.id == adapter.id)
+        {
+            unique.push(adapter);
+        }
+    }
+    let _ = REGISTERED_ADAPTERS.set(unique);
+}
+
+/// Every registered adapter: the platform team first, then registry agents.
+pub fn registered_adapters() -> &'static [ExternalAdapter] {
+    REGISTERED_ADAPTERS
+        .get()
+        .map(|adapters| adapters.as_slice())
+        .unwrap_or(&[])
+}
+
+pub fn is_registered_adapter(id: &str) -> bool {
+    registered_adapters().iter().any(|adapter| adapter.id == id)
+}
+
+/// The platform adapter that owns the implicit team: the first platform
+/// adapter whose policy is not Disabled. `None` when the user disabled every
+/// platform route, leaving built-ins and enabled registry agents to serve.
+pub fn platform_adapter(config: &Config) -> Option<&'static ExternalAdapter> {
+    let adapters = REGISTERED_ADAPTERS.get()?;
+    platform_adapter_in(adapters, config)
+}
+
+fn platform_adapter_in<'a>(
+    adapters: &'a [ExternalAdapter],
+    config: &Config,
+) -> Option<&'a ExternalAdapter> {
+    adapters.iter().find(|adapter| {
+        adapter.platform && config.acp.policy(&adapter.id) != AcpServerPolicy::Disabled
+    })
+}
+
+/// Whether `id` names a registered platform adapter.
+pub fn is_platform_adapter(id: &str) -> bool {
+    registered_adapters()
+        .iter()
+        .any(|adapter| adapter.platform && adapter.id == id)
 }
 
 fn external_launch(external: &ExternalAdapter) -> AdapterLaunch {
@@ -58,17 +120,27 @@ fn external_launch(external: &ExternalAdapter) -> AdapterLaunch {
     }
 }
 
-fn external_server_info(external: &ExternalAdapter, _config: &Config) -> AcpServerInfo {
+fn external_server_info(
+    external: &ExternalAdapter,
+    adapters: &[ExternalAdapter],
+    config: &Config,
+) -> AcpServerInfo {
+    let policy = config.acp.policy(&external.id);
+    let selected = if external.platform {
+        platform_adapter_in(adapters, config).is_some_and(|platform| platform.id == external.id)
+    } else {
+        policy == AcpServerPolicy::Enabled
+    };
     AcpServerInfo {
         id: external.id.clone(),
         label: external.label.clone(),
-        // The platform adapter cannot be disabled: it is the only route on
-        // this build, and normalize() strips any stale policy for it.
-        policy: AcpServerPolicy::Auto,
-        // The platform supplies this route by construction; launcher
-        // availability is handled at probe and spawn time.
+        policy,
+        // Registered adapters are detected by construction: the platform
+        // supplies its route, and registry agents launch through npx/uvx or
+        // an installed binary. Launcher availability is handled at probe and
+        // spawn time.
         detected: true,
-        selected: true,
+        selected,
         evidence: external.evidence.clone(),
         launch: external_launch(external),
         model_count: 0,
@@ -369,20 +441,43 @@ fn launch_for(kind: AdapterKind) -> AdapterLaunch {
             ],
             env: HashMap::new(),
         },
-        // Only reachable when an external adapter is registered: nothing maps
+        // Only reachable when a platform adapter is registered: nothing maps
         // a model or source id to External without one.
         AdapterKind::External => {
-            external_launch(external_adapter().expect("an external adapter is registered"))
+            let adapters = registered_adapters();
+            let external = adapters
+                .iter()
+                .find(|adapter| adapter.platform)
+                .or_else(|| adapters.first())
+                .expect("an external adapter is registered");
+            external_launch(external)
         }
     }
 }
 
 pub fn discover_inventory(config: &Config) -> AcpInventory {
-    if let Some(external) = external_adapter() {
-        return AcpInventory {
-            servers: vec![external_server_info(external, config)],
-        };
+    let registered = registered_adapters();
+    if registered.is_empty() {
+        return builtin_inventory(config);
     }
+    // Platform adapters first (registration order is the team preference),
+    // then the built-in routes, then the opt-in registry agents.
+    let mut servers: Vec<AcpServerInfo> = registered
+        .iter()
+        .map(|adapter| external_server_info(adapter, registered, config))
+        .collect();
+    servers.extend(builtin_servers(config));
+    servers.retain(inventory_server_is_visible);
+    AcpInventory { servers }
+}
+
+fn builtin_inventory(config: &Config) -> AcpInventory {
+    let mut servers = builtin_servers(config);
+    servers.retain(inventory_server_is_visible);
+    AcpInventory { servers }
+}
+
+fn builtin_servers(config: &Config) -> Vec<AcpServerInfo> {
     let availability = detect_availability();
     let detections = [
         (
@@ -396,7 +491,7 @@ pub fn discover_inventory(config: &Config) -> AcpInventory {
             availability.claude_status.unavailable_reason().to_string(),
         ),
     ];
-    let mut servers = detections
+    detections
         .into_iter()
         .map(|(kind, evidence, missing)| {
             let launch = launch_for(kind);
@@ -420,9 +515,7 @@ pub fn discover_inventory(config: &Config) -> AcpInventory {
                     .map(|plan| plan.label.clone()),
             }
         })
-        .collect::<Vec<_>>();
-    servers.retain(inventory_server_is_visible);
-    AcpInventory { servers }
+        .collect::<Vec<_>>()
 }
 
 /// Re-run local ACP discovery without discarding capabilities learned from
@@ -900,7 +993,10 @@ pub async fn resolve_recovering(config: &mut Config, cwd: &Path) -> Result<(Rost
     .await;
     let rows = natively_served(deepswe::eligible_high(&leaderboard.rows));
     let availability = detect_availability();
-    let inventory = discover_inventory(config);
+    let mut inventory = discover_inventory(config);
+    // Selected registry agents shipped as binary archives install on first
+    // use; the sentinel makes every later pass a cheap existence check.
+    crate::agent_install::resolve_pending(&mut inventory).await;
     let discovery = discover_available(&rows, &inventory, cwd).await;
     let notices = recover_unavailable_explicit_models(config, &inventory, &discovery);
     let mut roster = assemble_roster(config, &rows, &availability, inventory, discovery)?;
@@ -918,7 +1014,7 @@ fn recover_unavailable_explicit_models(
         config,
         inventory,
         discovery,
-        external_adapter().is_some(),
+        platform_adapter(config).is_some(),
     )
 }
 
@@ -926,7 +1022,7 @@ fn recover_unavailable_explicit_models_with_external(
     config: &mut Config,
     inventory: &AcpInventory,
     discovery: &Discovery,
-    external_registered: bool,
+    platform_registered: bool,
 ) -> Vec<String> {
     let mut notices = Vec::new();
     let source_was_probed = |source: &str| {
@@ -947,13 +1043,14 @@ fn recover_unavailable_explicit_models_with_external(
             .iter()
             .any(|candidate| candidate.model.model == model)
     };
-    // With a platform adapter registered it is the only route, so a model's
-    // native source (codex-acp/claude-acp) is never in the inventory and
-    // "was that source probed?" would always answer no — leaving a stale pin
-    // to fail resolution on every launch with no way to reset it in-app.
-    // Judge such pins against the sources that actually were probed.
+    // With a platform adapter registered it owns the implicit team, so a
+    // model's native source (codex-acp/claude-acp) may never be in the
+    // inventory and "was that source probed?" would always answer no —
+    // leaving a stale pin to fail resolution on every launch with no way to
+    // reset it in-app. Judge such pins against the sources that actually
+    // were probed.
     let conclusively_missing = |model: &str| match adapter_kind(model) {
-        Some(kind) if !external_registered => {
+        Some(kind) if !platform_registered => {
             model_is_missing(model) && source_was_probed(&launch_for(kind).source_id)
         }
         _ => model_is_missing(model) && all_selected_sources_were_probed,
@@ -1047,8 +1144,15 @@ fn assemble_roster(
         let message = match inventory
             .servers
             .iter()
-            .find(|server| server.launch.kind == AdapterKind::External)
-        {
+            .find(|server| {
+                server.launch.kind == AdapterKind::External && is_platform_adapter(&server.id)
+            })
+            .or_else(|| {
+                inventory
+                    .servers
+                    .iter()
+                    .find(|server| server.launch.kind == AdapterKind::External)
+            }) {
             Some(external) => format!(
                 "no model is launchable{diagnostic}: {} did not advertise a usable model",
                 external.label
@@ -1084,12 +1188,21 @@ fn assemble_roster(
             &config.agent.acp_priority,
         )
         .or_else(|| {
-            // When only an external adapter is connected (e.g. the Android
-            // sidecar), no ranked DeepSWE row is launchable; fall back to its
-            // first advertised model instead of failing Auto outright.
+            // When no ranked DeepSWE row is launchable (e.g. only the
+            // platform adapter or enabled registry agents are connected),
+            // fall back to the platform's first advertised model, then any
+            // other external route, instead of failing Auto outright.
             primary_available
                 .iter()
-                .find(|candidate| candidate.launch.kind == AdapterKind::External)
+                .find(|candidate| {
+                    candidate.launch.kind == AdapterKind::External
+                        && is_platform_adapter(&candidate.launch.source_id)
+                })
+                .or_else(|| {
+                    primary_available
+                        .iter()
+                        .find(|candidate| candidate.launch.kind == AdapterKind::External)
+                })
         })
         .ok_or_else(|| anyhow!("Agent Auto requires at least one ranked DeepSWE model"))?
     } else {
@@ -1352,6 +1465,8 @@ mod tests {
             args: vec!["--serve".to_string()],
             env: HashMap::new(),
             evidence: "bundled sibling /opt/sidecar/acp".to_string(),
+            platform: false,
+            install: None,
         }
     }
 
@@ -1371,24 +1486,94 @@ mod tests {
     }
 
     #[test]
-    fn external_server_is_always_selected() {
-        let external = sidecar_adapter();
+    fn platform_adapter_selects_the_first_undisabled_route() {
+        let draupnir = ExternalAdapter {
+            platform: true,
+            ..sidecar_adapter()
+        };
+        let anvil = ExternalAdapter {
+            id: "anvil".to_string(),
+            label: "Anvil".to_string(),
+            platform: true,
+            ..sidecar_adapter()
+        };
+        let adapters = [draupnir, anvil];
+        let config = Config::default();
+
+        // Registration order is the team preference.
+        assert_eq!(
+            platform_adapter_in(&adapters, &config).map(|found| found.id.as_str()),
+            Some("sidecar")
+        );
+
+        // Disabling the preferred platform routes the team to the other one.
+        let mut config = Config::default();
+        config
+            .acp
+            .policies
+            .insert("sidecar".to_string(), AcpServerPolicy::Disabled);
+        assert_eq!(
+            platform_adapter_in(&adapters, &config).map(|found| found.id.as_str()),
+            Some("anvil")
+        );
+
+        // Disabling every platform route leaves no implicit team.
+        config
+            .acp
+            .policies
+            .insert("anvil".to_string(), AcpServerPolicy::Disabled);
+        assert!(platform_adapter_in(&adapters, &config).is_none());
+    }
+
+    #[test]
+    fn platform_server_selects_the_resolved_platform_route() {
+        let draupnir = ExternalAdapter {
+            id: "draupnir".to_string(),
+            label: "Draupnir".to_string(),
+            platform: true,
+            ..sidecar_adapter()
+        };
+        let adapters = vec![draupnir];
         let mut config = Config::default();
 
-        let info = external_server_info(&external, &config);
+        let info = external_server_info(&adapters[0], &adapters, &config);
         assert!(info.detected);
         assert!(info.selected);
         assert_eq!(info.launch.kind, AdapterKind::External);
         assert_eq!(info.launch.command, PathBuf::from("/opt/sidecar/acp"));
 
-        // The platform adapter is the only route on its build; even a stale
-        // Disabled policy in the config must not deselect it, or nothing is
-        // launchable and every start fails.
+        // A Disabled platform policy deselects the route: with Anvil also
+        // registered, that is how the implicit team switches.
+        config
+            .acp
+            .policies
+            .insert("draupnir".to_string(), AcpServerPolicy::Disabled);
+        assert!(!external_server_info(&adapters[0], &adapters, &config).selected);
+    }
+
+    #[test]
+    fn registry_agent_selects_only_while_enabled() {
+        let agent = sidecar_adapter();
+        let adapters = [agent.clone()];
+        let mut config = Config::default();
+
+        // Auto never launches a registry agent: probing every npx-distributed
+        // agent on the machine at every start would dominate discovery.
+        let info = external_server_info(&agent, &adapters, &config);
+        assert!(info.detected);
+        assert!(!info.selected);
+
+        config
+            .acp
+            .policies
+            .insert("sidecar".to_string(), AcpServerPolicy::Enabled);
+        assert!(external_server_info(&agent, &adapters, &config).selected);
+
         config
             .acp
             .policies
             .insert("sidecar".to_string(), AcpServerPolicy::Disabled);
-        assert!(external_server_info(&external, &config).selected);
+        assert!(!external_server_info(&agent, &adapters, &config).selected);
     }
 
     #[test]
@@ -1471,7 +1656,11 @@ mod tests {
     fn external_probe_failure_names_the_platform_team() {
         let external = sidecar_adapter();
         let inventory = AcpInventory {
-            servers: vec![external_server_info(&external, &Config::default())],
+            servers: vec![external_server_info(
+                &external,
+                std::slice::from_ref(&external),
+                &Config::default(),
+            )],
         };
         let discovery = Discovery {
             available: Vec::new(),
@@ -2310,9 +2499,15 @@ mod tests {
             args: Vec::new(),
             env: HashMap::new(),
             evidence: "bundled".to_string(),
+            platform: false,
+            install: None,
         };
         let inventory = AcpInventory {
-            servers: vec![external_server_info(&external, &config)],
+            servers: vec![external_server_info(
+                &external,
+                std::slice::from_ref(&external),
+                &config,
+            )],
         };
         let discovery = Discovery {
             available: vec![role("gpt-5-6-sol", 0.7)],

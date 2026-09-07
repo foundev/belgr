@@ -87,11 +87,17 @@ seat even though Codex is first in adapter priority. Choose a Team preset to
 retain Auto model selection within its assigned provider, and use `/agents` to
 record what actually launched.
 
-## Codex and Claude only
+## Built-ins, platform routes, and the ACP registry
 
-The ACP Servers panel intentionally contains only Codex and Claude; Mjolnir
-does not support user-configured ACP servers. Legacy `[[acp.servers]]`
-sections in `config.toml` are ignored on load and dropped on the next save.
+The ACP Servers panel contains the built-in Codex and Claude adapters, the
+platform routes (Anvil and Draupnir — the policy switches which one owns the
+implicit team), and every agent from the official
+[ACP registry](https://agentclientprotocol.com) that ships a distribution for
+this platform. Registry agents stay off until explicitly enabled: Auto never
+launches one, so enabling is the only way it joins model discovery. Agents
+distributed as npx/uvx packages launch directly; binary-distributed agents
+install on first use. Legacy `[[acp.servers]]` sections in `config.toml` are
+ignored on load and dropped on the next save.
 
 ACP servers are model agents. They are not the same as MCP servers: Mjolnir does
 not expose a generic user-facing MCP-server list here. Its internal `mj-subagents`

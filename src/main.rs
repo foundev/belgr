@@ -785,6 +785,7 @@ async fn main() -> Result<()> {
         Ok(Some(session_id)) => {
             if worktree_kept {
                 print_resume_hint(
+                    &invoked_program_name(),
                     session_id,
                     worktree_label.as_deref(),
                     workspace_roots.additional_directories(),
@@ -827,32 +828,43 @@ async fn termination_pty_integration_helper(termination: termination::Coordinato
 }
 
 /// Print a hint showing how to resume the session.
-fn print_resume_hint(session_id: &str, worktree_label: Option<&str>, additional_roots: &[PathBuf]) {
+fn print_resume_hint(
+    program_name: &str,
+    session_id: &str,
+    worktree_label: Option<&str>,
+    additional_roots: &[PathBuf],
+) {
     println!(
         "{}",
-        resume_hint_output(session_id, worktree_label, additional_roots)
+        resume_hint_output(program_name, session_id, worktree_label, additional_roots)
     );
 }
 
 /// Build the post-session resume hint text. Fullscreen restores via the
 /// primary buffer, so its output already lands on a fresh line.
 fn resume_hint_output(
+    program_name: &str,
     session_id: &str,
     worktree_label: Option<&str>,
     additional_roots: &[PathBuf],
 ) -> String {
     format!(
         "To resume: {}",
-        resume_hint_command(session_id, worktree_label, additional_roots)
+        resume_hint_command(program_name, session_id, worktree_label, additional_roots)
     )
 }
 
 fn resume_hint_command(
+    program_name: &str,
     session_id: &str,
     worktree_label: Option<&str>,
     additional_roots: &[PathBuf],
 ) -> String {
-    let mut command = format!("mj resume {}", shell_quote(session_id));
+    let mut command = format!(
+        "{} resume {}",
+        shell_quote(program_name),
+        shell_quote(session_id)
+    );
     if let Some(label) = worktree_label {
         command.push_str(" --worktree ");
         command.push_str(&shell_quote(label));
@@ -862,6 +874,21 @@ fn resume_hint_command(
         command.push_str(&shell_quote(&root.display().to_string()));
     }
     command
+}
+
+/// The name to print in user-facing command hints: the file stem of the
+/// invoked argv[0] so the suggested command matches the binary the user
+/// actually runs, falling back to the crate name.
+fn invoked_program_name() -> String {
+    program_name_from_argv0(std::env::args_os().next())
+}
+
+fn program_name_from_argv0(argv0: Option<std::ffi::OsString>) -> String {
+    argv0
+        .map(PathBuf::from)
+        .and_then(|path| path.file_stem().map(|s| s.to_string_lossy().into_owned()))
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| env!("CARGO_PKG_NAME").to_string())
 }
 
 fn shell_quote(value: &str) -> String {
@@ -1175,7 +1202,8 @@ async fn run_resume(
             }
             [] => {}
             _ => anyhow::bail!(
-                "legacy session ID {session_id} is ambiguous across ACP adapters; select it with `mj resume` first"
+                "legacy session ID {session_id} is ambiguous across ACP adapters; select it with `{} resume` first",
+                invoked_program_name()
             ),
         }
     }
@@ -1254,6 +1282,7 @@ async fn run_resume(
             && worktree_kept
         {
             print_resume_hint(
+                &invoked_program_name(),
                 resumed_id,
                 worktree_label.as_deref(),
                 workspace_roots.additional_directories(),
@@ -1343,6 +1372,7 @@ async fn run_resume(
                     && worktree_kept
                 {
                     print_resume_hint(
+                        &invoked_program_name(),
                         resumed_id,
                         worktree_label.as_deref(),
                         workspace_roots.additional_directories(),
@@ -5263,6 +5293,7 @@ mod tests {
     #[test]
     fn resume_hint_includes_worktree_and_shell_quoted_additional_roots() {
         let command = resume_hint_command(
+            "mj",
             "sess-123",
             Some("named tree"),
             &[
@@ -5281,8 +5312,35 @@ mod tests {
     fn resume_hint_needs_no_lead_after_fullscreen_teardown() {
         // Fullscreen restores via the primary buffer, so the hint already
         // lands on a fresh line.
-        let hint = resume_hint_output("sess-123", None, &[]);
+        let hint = resume_hint_output("mj", "sess-123", None, &[]);
         assert_eq!(hint, "To resume: mj resume sess-123");
+    }
+
+    #[test]
+    fn resume_hint_uses_invoked_program_name() {
+        let hint = resume_hint_output("belgr", "sess-123", None, &[]);
+        assert_eq!(hint, "To resume: belgr resume sess-123");
+    }
+
+    #[test]
+    fn resume_hint_shell_quotes_program_name_with_spaces() {
+        let hint = resume_hint_output("my agent", "sess-123", None, &[]);
+        assert_eq!(hint, "To resume: 'my agent' resume sess-123");
+    }
+
+    #[test]
+    fn program_name_from_argv0_strips_path_and_falls_back_to_crate_name() {
+        assert_eq!(
+            program_name_from_argv0(Some("/usr/local/bin/belgr".into())),
+            "belgr"
+        );
+        assert_eq!(program_name_from_argv0(Some("mj".into())), "mj");
+        assert_eq!(program_name_from_argv0(Some("belgr.exe".into())), "belgr");
+        assert_eq!(program_name_from_argv0(None), env!("CARGO_PKG_NAME"));
+        assert_eq!(
+            program_name_from_argv0(Some("target/debug/belgr".into())),
+            "belgr"
+        );
     }
 
     #[test]

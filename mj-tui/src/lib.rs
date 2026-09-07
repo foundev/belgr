@@ -1,5 +1,6 @@
 //! Ratatui terminal frontend and interactive application state for Belgr.
 
+pub mod agent_picker;
 pub mod app;
 pub mod auth;
 pub mod clipboard;

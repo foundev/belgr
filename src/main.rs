@@ -1943,8 +1943,27 @@ async fn run_app(
             UiExitReason::Quit => return Ok(session_result.session_id),
             UiExitReason::NewSession | UiExitReason::ClearSession => {
                 let show_new_session_boundary = session_result.reason == UiExitReason::NewSession;
+                // /new asks which agent to talk to next — built-ins, the
+                // platform route, and every registry agent; /clear keeps the
+                // current route.
+                let requested_source = if show_new_session_boundary {
+                    choose_agent_for_new_session(
+                        &roster,
+                        palette::TerminalTheme::current(),
+                        termination.clone(),
+                    )
+                    .await?
+                } else {
+                    None
+                };
                 cfg = Config::load(&config_path)?;
-                let (resolved, notices) = resolve_roster_for_tui(&mut cfg, &cwd).await?;
+                let (resolved, notices) = resolve_roster_for_new_session(
+                    &mut cfg,
+                    &cwd,
+                    &config_path,
+                    requested_source.as_deref(),
+                )
+                .await?;
                 if !notices.is_empty()
                     && let Err(error) = cfg.save(&config_path)
                 {
@@ -2049,20 +2068,42 @@ async fn run_app(
                 return Ok(None);
             }
             UiExitReason::LoadSession => {
-                match run_session_picker_action_for_agent(
-                    &agent,
-                    cwd.clone(),
-                    runtime_options.agent_stderr.as_deref(),
-                    session_result.session_id,
-                    session_result.session_title,
+                // /load first asks which agent's sessions to show, then lists
+                // them for the chosen agent. Cancelling either picker keeps
+                // the current session running.
+                let chosen = run_load_session_agent_picker(
+                    &roster,
                     palette::TerminalTheme::current(),
                     termination.clone(),
                 )
-                .await?
-                {
+                .await?;
+                let (picker_agent, picker_action) = match chosen {
+                    Some(agent) => (
+                        agent.clone(),
+                        run_session_picker_action_for_agent(
+                            &agent,
+                            cwd.clone(),
+                            runtime_options.agent_stderr.as_deref(),
+                            session_result.session_id,
+                            session_result.session_title,
+                            palette::TerminalTheme::current(),
+                            termination.clone(),
+                        )
+                        .await?,
+                    ),
+                    None => (
+                        agent.clone(),
+                        session_picker_action(
+                            session::ResumeOutcome::Cancelled,
+                            session_result.session_id,
+                            session_result.session_title,
+                        )?,
+                    ),
+                };
+                match picker_action {
                     SessionPickerAction::Resume { session_id, title } => {
                         initial_resume = Some(ResumeTarget { session_id, title });
-                        initial_agent = Some(agent);
+                        initial_agent = Some(picker_agent);
                         continue;
                     }
                     SessionPickerAction::Exit(session_id) => return Ok(session_id),
@@ -2407,6 +2448,242 @@ async fn settle_after_fullscreen_picker_restore() {
     // answer the CPR query late enough that crossterm times out and leaks the
     // response back to the shell prompt.
     tokio::time::sleep(Duration::from_millis(75)).await;
+}
+
+async fn run_agent_picker_once(
+    choices: Vec<mj_tui::agent_picker::AgentChoice>,
+    current_source: Option<&str>,
+    theme: palette::TerminalTheme,
+    termination: CancellationToken,
+) -> Result<mj_tui::agent_picker::AgentPickerOutcome> {
+    let mut terminal = FullscreenTerminal::fresh().context("setup agent picker terminal")?;
+    let outcome = mj_tui::agent_picker::run_agent_picker(
+        terminal.terminal_mut(),
+        choices,
+        current_source,
+        theme,
+        termination,
+    )
+    .await;
+    terminal.restore_once();
+    settle_after_fullscreen_picker_restore().await;
+    outcome
+}
+
+/// Choices for the /new agent picker: every ACP server this build knows —
+/// built-ins, the platform route, and every registry agent, enabled or not.
+/// Picking a registry agent enables it for the next resolution.
+fn inventory_agent_choices(roster: &roster::Roster) -> Vec<mj_tui::agent_picker::AgentChoice> {
+    roster
+        .inventory
+        .servers
+        .iter()
+        .map(|server| {
+            let status = if let Some(error) = &server.error {
+                format!("error: {error}")
+            } else if server.selected {
+                if server.model_count > 0 {
+                    format!(
+                        "ready · {} model{}",
+                        server.model_count,
+                        if server.model_count == 1 { "" } else { "s" }
+                    )
+                } else {
+                    "ready".to_string()
+                }
+            } else if crate::roster::is_registered_adapter(&server.id)
+                && !crate::roster::is_platform_adapter(&server.id)
+            {
+                "off · pick to enable".to_string()
+            } else {
+                "off".to_string()
+            };
+            let command = launch_display(&server.launch);
+            mj_tui::agent_picker::AgentChoice {
+                source_id: server.id.clone(),
+                label: server.label.clone(),
+                status,
+                detail: format!("{} · {command}", server.evidence),
+                agent: SelectedAgent {
+                    source_id: server.id.clone(),
+                    program: server.launch.command.clone(),
+                    args: server.launch.args.clone(),
+                    env: server.launch.env.clone(),
+                },
+            }
+        })
+        .collect()
+}
+
+/// Choices for the /load agent picker: only the sources the roster already
+/// probed, since listing sessions launches the agent. One row per source, in
+/// discovery order with the current primary first.
+fn probed_agent_choices(roster: &roster::Roster) -> Vec<mj_tui::agent_picker::AgentChoice> {
+    let mut seen = std::collections::HashSet::new();
+    let mut choices = Vec::new();
+    for role in std::iter::once(&roster.primary).chain(roster.available.iter()) {
+        let source = role.launch.source_id.clone();
+        if !seen.insert(source.clone()) {
+            continue;
+        }
+        let count = roster
+            .available
+            .iter()
+            .filter(|candidate| candidate.launch.source_id == source)
+            .count();
+        let (label, evidence) = roster
+            .inventory
+            .servers
+            .iter()
+            .find(|server| server.id == source)
+            .map(|server| (server.label.clone(), server.evidence.clone()))
+            .unwrap_or_else(|| (source.clone(), launch_display(&role.launch)));
+        choices.push(mj_tui::agent_picker::AgentChoice {
+            source_id: source.clone(),
+            label,
+            status: format!("{} model{}", count, if count == 1 { "" } else { "s" }),
+            detail: evidence,
+            agent: selected_agent_for_role(role),
+        });
+    }
+    choices
+}
+
+fn launch_display(launch: &roster::AdapterLaunch) -> String {
+    if launch.args.is_empty() {
+        launch.command.display().to_string()
+    } else {
+        format!("{} {}", launch.command.display(), launch.args.join(" "))
+    }
+}
+
+/// Run the /new agent picker; `None` keeps automatic routing (the picker was
+/// cancelled, or there is nothing to choose between).
+async fn choose_agent_for_new_session(
+    roster: &roster::Roster,
+    theme: palette::TerminalTheme,
+    termination: CancellationToken,
+) -> Result<Option<String>> {
+    let choices = inventory_agent_choices(roster);
+    if choices.len() <= 1 {
+        return Ok(None);
+    }
+    let current = roster.primary.launch.source_id.clone();
+    match run_agent_picker_once(choices, Some(&current), theme, termination).await? {
+        mj_tui::agent_picker::AgentPickerOutcome::Selected(choice) => Ok(Some(choice.source_id)),
+        mj_tui::agent_picker::AgentPickerOutcome::Cancelled => Ok(None),
+    }
+}
+
+/// Run the /load agent picker over the sources the roster already probed;
+/// `None` keeps the current session (cancelled, or no picker needed).
+async fn run_load_session_agent_picker(
+    roster: &roster::Roster,
+    theme: palette::TerminalTheme,
+    termination: CancellationToken,
+) -> Result<Option<SelectedAgent>> {
+    let choices = probed_agent_choices(roster);
+    match choices.len() {
+        // With a single probed agent there is nothing to pick between: list
+        // its sessions directly, exactly like /load did before the picker.
+        0 | 1 => Ok(choices.into_iter().next().map(|choice| choice.agent)),
+        _ => {
+            let current = roster.primary.launch.source_id.clone();
+            match run_agent_picker_once(choices, Some(&current), theme, termination).await? {
+                mj_tui::agent_picker::AgentPickerOutcome::Selected(choice) => {
+                    Ok(Some(choice.agent))
+                }
+                mj_tui::agent_picker::AgentPickerOutcome::Cancelled => Ok(None),
+            }
+        }
+    }
+}
+
+/// Persist an agent picker choice for the next resolution: a picked registry
+/// agent is enabled, a picked platform adapter becomes the implicit team, and
+/// the primary seat is routed to the picked source. A model already pinned to
+/// the picked agent survives; one pinned to another route would make the
+/// picked agent unresolvable, so it yields to the agent's best model.
+fn apply_agent_selection_to_config(cfg: &mut Config, source: &str) {
+    if crate::roster::is_registered_adapter(source) {
+        if crate::roster::is_platform_adapter(source) {
+            // Switching the team: the picked platform adapter owns the
+            // implicit team, so every other platform route is disabled.
+            for registered in crate::roster::registered_adapters() {
+                if registered.platform && registered.id != source {
+                    cfg.set_acp_server_policy(&registered.id, config::AcpServerPolicy::Disabled);
+                }
+            }
+            cfg.set_acp_server_policy(source, config::AcpServerPolicy::Enabled);
+        } else {
+            // Registry agents are opt-in extras: picking one is what enables
+            // it to join model discovery.
+            cfg.set_acp_server_policy(source, config::AcpServerPolicy::Enabled);
+        }
+    }
+    if cfg.agent.model != "auto" && cfg.agent.acp_source.as_deref() != Some(source) {
+        cfg.agent.model = "auto".to_string();
+    }
+    cfg.agent.acp_source = Some(source.to_string());
+}
+
+/// Resolve the roster for a /new session, honoring the agent picked in the
+/// /new agent picker. Registry agents are enabled and the primary seat is
+/// routed to the picked source; when that source fails to launch, the seat
+/// falls back to automatic routing with a visible notice instead of stranding
+/// the session.
+async fn resolve_roster_for_new_session(
+    cfg: &mut Config,
+    cwd: &Path,
+    config_path: &Path,
+    requested_source: Option<&str>,
+) -> Result<(roster::Roster, Vec<String>)> {
+    if let Some(source) = requested_source {
+        apply_agent_selection_to_config(cfg, source);
+        if let Err(error) = cfg.save(config_path) {
+            tracing::warn!(%error, "agent selection was not persisted");
+        }
+    }
+    match resolve_roster_for_tui(cfg, cwd).await {
+        Ok((mut roster, notices)) => {
+            if let Some(source) = requested_source {
+                pin_primary_to_requested_source(&mut roster, source, cfg);
+            }
+            Ok((roster, notices))
+        }
+        Err(error) if requested_source.is_some() => {
+            let source = requested_source.expect("guarded by is_some");
+            tracing::warn!(agent = %source, "requested agent did not resolve: {error:#}");
+            cfg.agent.acp_source = None;
+            cfg.agent.model = "auto".to_string();
+            let (mut roster, mut notices) = resolve_roster_for_tui(cfg, cwd).await?;
+            let notice = format!("agent '{source}' could not launch; using automatic selection");
+            notices.push(notice.clone());
+            roster.warnings.push(notice);
+            Ok((roster, notices))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// Resolution with `agent.acp_source` pinned already constrains the primary
+/// to the picked agent; config recovery paths (team adoption, explicit-model
+/// resets) can still leave the seat elsewhere, so re-pin when the source is
+/// launchable.
+fn pin_primary_to_requested_source(roster: &mut roster::Roster, source: &str, config: &Config) {
+    if roster.primary.launch.source_id == source {
+        return;
+    }
+    let Some(role) = roster
+        .available
+        .iter()
+        .find(|role| role.launch.source_id == source)
+        .cloned()
+    else {
+        return;
+    };
+    roster.primary = role;
+    crate::roster::rebind_auto_review_for_primary(roster, config);
 }
 
 fn agent_header_label(agent: &SelectedAgent) -> String {
@@ -4130,6 +4407,205 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(route_models, vec!["primary", "alternate"]);
         assert_eq!(routes[1].launch.source_id, alternate.launch.source_id);
+    }
+
+    fn register_test_adapters() {
+        let external = |id: &str, label: &str, platform: bool| roster::ExternalAdapter {
+            id: id.to_string(),
+            label: label.to_string(),
+            command: PathBuf::from(if platform { "platform-bin" } else { "npx" }),
+            args: vec![id.to_string()],
+            env: Default::default(),
+            evidence: format!("test {id}"),
+            platform,
+            install: None,
+        };
+        crate::roster::register_external_adapters(vec![
+            external("draupnir", "Draupnir", true),
+            external("anvil", "Anvil", true),
+            external("gemini", "Gemini", false),
+        ]);
+    }
+
+    fn test_server(
+        id: &str,
+        label: &str,
+        policy: config::AcpServerPolicy,
+        selected: bool,
+        model_count: usize,
+    ) -> roster::AcpServerInfo {
+        roster::AcpServerInfo {
+            id: id.to_string(),
+            label: label.to_string(),
+            policy,
+            detected: true,
+            selected,
+            evidence: format!("test launch {id}"),
+            launch: roster::AdapterLaunch {
+                kind: roster::AdapterKind::External,
+                source_id: id.to_string(),
+                command: PathBuf::from("npx"),
+                args: vec![id.to_string()],
+                env: Default::default(),
+            },
+            model_count,
+            error: None,
+            session_config: Vec::new(),
+            subscription: None,
+        }
+    }
+
+    #[test]
+    fn agent_selection_pins_a_builtin_without_enabling_it() {
+        let mut cfg = Config::default();
+        apply_agent_selection_to_config(&mut cfg, "codex-acp");
+        assert_eq!(cfg.agent.acp_source.as_deref(), Some("codex-acp"));
+        assert_eq!(cfg.agent.model, "auto");
+        assert_eq!(cfg.acp.policy("codex-acp"), config::AcpServerPolicy::Auto);
+    }
+
+    #[test]
+    fn agent_selection_enables_a_registry_agent_and_routes_the_seat() {
+        register_test_adapters();
+        let mut cfg = Config::default();
+        apply_agent_selection_to_config(&mut cfg, "gemini");
+        assert_eq!(cfg.acp.policy("gemini"), config::AcpServerPolicy::Enabled);
+        assert_eq!(cfg.agent.acp_source.as_deref(), Some("gemini"));
+        assert_eq!(cfg.agent.model, "auto");
+    }
+
+    #[test]
+    fn agent_selection_preserves_a_model_pinned_to_the_picked_agent() {
+        register_test_adapters();
+        let mut cfg = Config::default();
+        cfg.agent.model = "gemini-pro".to_string();
+        cfg.agent.acp_source = Some("gemini".to_string());
+        apply_agent_selection_to_config(&mut cfg, "gemini");
+        assert_eq!(cfg.agent.model, "gemini-pro");
+        assert_eq!(cfg.agent.acp_source.as_deref(), Some("gemini"));
+    }
+
+    #[test]
+    fn agent_selection_resets_a_model_pinned_to_another_route() {
+        register_test_adapters();
+        let mut cfg = Config::default();
+        cfg.agent.model = "gpt-5-6-terra".to_string();
+        cfg.agent.acp_source = Some("codex-acp".to_string());
+        apply_agent_selection_to_config(&mut cfg, "gemini");
+        assert_eq!(cfg.agent.model, "auto");
+        assert_eq!(cfg.agent.acp_source.as_deref(), Some("gemini"));
+    }
+
+    #[test]
+    fn agent_selection_switching_platform_disables_the_other_platform_route() {
+        register_test_adapters();
+        let mut cfg = Config::default();
+        apply_agent_selection_to_config(&mut cfg, "anvil");
+        assert_eq!(cfg.acp.policy("anvil"), config::AcpServerPolicy::Enabled);
+        assert_eq!(
+            cfg.acp.policy("draupnir"),
+            config::AcpServerPolicy::Disabled
+        );
+    }
+
+    #[test]
+    fn new_session_choices_list_every_server_with_status_and_launch() {
+        register_test_adapters();
+        let primary = test_roster_agent("primary", "codex-acp");
+        let mut roster = test_roster(primary.clone(), vec![primary]);
+        roster.inventory = roster::AcpInventory {
+            servers: vec![
+                test_server(
+                    "draupnir",
+                    "Draupnir",
+                    config::AcpServerPolicy::Enabled,
+                    true,
+                    3,
+                ),
+                test_server("gemini", "Gemini", config::AcpServerPolicy::Auto, false, 0),
+                test_server("codex-acp", "Codex", config::AcpServerPolicy::Auto, true, 0),
+            ],
+        };
+
+        let choices = inventory_agent_choices(&roster);
+        let ids = choices
+            .iter()
+            .map(|choice| choice.source_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["draupnir", "gemini", "codex-acp"]);
+        assert_eq!(choices[0].status, "ready · 3 models");
+        assert_eq!(choices[1].status, "off · pick to enable");
+        assert_eq!(choices[2].status, "ready");
+        assert_eq!(choices[1].agent.source_id, "gemini");
+        assert_eq!(choices[1].agent.program, PathBuf::from("npx"));
+        assert!(choices[1].detail.contains("npx gemini"));
+    }
+
+    #[test]
+    fn load_choices_list_each_probed_source_once_with_the_primary_first() {
+        register_test_adapters();
+        let primary = test_roster_agent("primary", "gemini");
+        let secondary = test_roster_agent("secondary", "codex-acp");
+        let mut roster = test_roster(primary.clone(), vec![primary, secondary]);
+        roster.inventory = roster::AcpInventory {
+            servers: vec![
+                test_server(
+                    "gemini",
+                    "Gemini",
+                    config::AcpServerPolicy::Enabled,
+                    true,
+                    1,
+                ),
+                test_server(
+                    "codex-acp",
+                    "Codex",
+                    config::AcpServerPolicy::Enabled,
+                    true,
+                    1,
+                ),
+            ],
+        };
+
+        let choices = probed_agent_choices(&roster);
+        let ids = choices
+            .iter()
+            .map(|choice| choice.source_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["gemini", "codex-acp"]);
+        // /load choices carry the roster-encoded agent so resumed-session
+        // provenance still matches the launched route.
+        assert_eq!(choices[0].agent.source_id, "roster:primary");
+        assert_eq!(choices[0].status, "1 model");
+    }
+
+    #[tokio::test]
+    async fn load_picker_with_one_probed_agent_skips_the_picker_and_lists_it() {
+        register_test_adapters();
+        let primary = test_roster_agent("primary", "gemini");
+        let roster = test_roster(primary.clone(), vec![primary]);
+        let agent = run_load_session_agent_picker(
+            &roster,
+            palette::TerminalTheme::current(),
+            CancellationToken::new(),
+        )
+        .await
+        .expect("single choice");
+        let agent = agent.expect("the only probed agent is chosen");
+        assert_eq!(agent.source_id, "roster:primary");
+    }
+
+    #[test]
+    fn pinning_rebinds_primary_to_the_requested_source_when_resolution_left_it_elsewhere() {
+        let codex = test_roster_agent("gpt-5-6-terra", "codex-acp");
+        let gemini = test_roster_agent("gemini-pro", "gemini");
+        let mut roster = test_roster(codex.clone(), vec![codex, gemini.clone()]);
+        pin_primary_to_requested_source(&mut roster, "gemini", &Config::default());
+        assert_eq!(roster.primary.launch.source_id, "gemini");
+        assert_eq!(roster.primary.model.model, "gemini-pro");
+        // A source with no launchable role leaves the seat untouched.
+        let mut roster = test_roster(test_roster_agent("gpt", "codex-acp"), vec![]);
+        pin_primary_to_requested_source(&mut roster, "gemini", &Config::default());
+        assert_eq!(roster.primary.launch.source_id, "codex-acp");
     }
 
     #[test]

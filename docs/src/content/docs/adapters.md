@@ -94,10 +94,13 @@ platform routes (Anvil and Draupnir — the policy switches which one owns the
 implicit team), and every agent from the official
 [ACP registry](https://agentclientprotocol.com) that ships a distribution for
 this platform. Registry agents stay off until explicitly enabled: Auto never
-launches one, so enabling is the only way it joins model discovery. Agents
-distributed as npx/uvx packages launch directly; binary-distributed agents
-install on first use. Legacy `[[acp.servers]]` sections in `config.toml` are
-ignored on load and dropped on the next save.
+launches one, so enabling is the only way it joins model discovery. `/new`
+opens an agent picker listing every registered agent — picking one enables it
+and starts the next session with that agent; `/load` uses the same picker to
+choose whose sessions to list. Agents distributed as npx/uvx packages launch
+directly; binary-distributed agents install on first use. Legacy
+`[[acp.servers]]` sections in `config.toml` are ignored on load and dropped on
+the next save.
 
 ACP servers are model agents. They are not the same as MCP servers: Mjolnir does
 not expose a generic user-facing MCP-server list here. Its internal `mj-subagents`

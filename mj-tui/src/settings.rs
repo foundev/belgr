@@ -83,6 +83,17 @@ impl SettingsEditor {
     pub fn new(mut config: Config, choices: Vec<ModelChoice>, notice: Option<String>) -> Self {
         config.apply_registered_external_team();
         let inventory = crate::roster::discover_inventory(&config);
+        // When a platform adapter owns the implicit team but nothing is
+        // launchable yet, prefill the primary model so a plain save (no model
+        // cycling) already records a concrete selection and breaks the
+        // first-run no-model deadlock.
+        if crate::roster::platform_default_model_fallback(
+            crate::roster::platform_adapter(&config).is_some(),
+            !choices.iter().any(|choice| choice.available),
+        ) && config.agent.model == "auto"
+        {
+            config.agent.model = crate::roster::PLATFORM_DEFAULT_MODEL.to_string();
+        }
         let saved_bifrost_version = config.review.bifrost_version.clone();
         let saved_max_correction_rounds = config.agent.max_correction_rounds;
         Self {
@@ -677,6 +688,17 @@ impl SettingsEditor {
             if seen.insert(choice.model.clone()) {
                 choices.push(choice.model.clone());
             }
+        }
+        // With a platform adapter (Draupnir or Anvil) owning the implicit team
+        // but nothing launchable yet, offer the platform default model so a
+        // first-run save can pick a concrete model and break the deadlock
+        // instead of being stranded with only `auto`.
+        if crate::roster::platform_default_model_fallback(
+            crate::roster::platform_adapter(&self.config).is_some(),
+            !self.choices.iter().any(|choice| choice.available),
+        ) && seen.insert(crate::roster::PLATFORM_DEFAULT_MODEL.to_string())
+        {
+            choices.push(crate::roster::PLATFORM_DEFAULT_MODEL.to_string());
         }
         choices
     }

@@ -24,6 +24,17 @@ impl MjConfigCatalog {
     pub fn new(mut config: Config, choices: Vec<ModelChoice>) -> Self {
         config.apply_registered_external_team();
         let inventory = mj_core::roster::discover_inventory(&config);
+        // When a platform adapter owns the implicit team but nothing is
+        // launchable yet, prefill the primary model so a plain save already
+        // records a concrete selection and breaks the first-run no-model
+        // deadlock instead of leaving the seat on `auto`.
+        if mj_core::roster::platform_default_model_fallback(
+            mj_core::roster::platform_adapter(&config).is_some(),
+            !choices.iter().any(|choice| choice.available),
+        ) && config.agent.model == "auto"
+        {
+            config.agent.model = mj_core::roster::PLATFORM_DEFAULT_MODEL.to_string();
+        }
         Self {
             config,
             choices,
@@ -143,6 +154,16 @@ impl MjConfigCatalog {
             if seen.insert(choice.model.clone()) {
                 choices.push(choice.model.clone());
             }
+        }
+        // With a platform adapter owning the implicit team but nothing
+        // launchable yet, offer the platform default model so a first-run save
+        // can pick a concrete model and break the no-model deadlock.
+        if mj_core::roster::platform_default_model_fallback(
+            mj_core::roster::platform_adapter(&self.config).is_some(),
+            !self.choices.iter().any(|choice| choice.available),
+        ) && seen.insert(mj_core::roster::PLATFORM_DEFAULT_MODEL.to_string())
+        {
+            choices.push(mj_core::roster::PLATFORM_DEFAULT_MODEL.to_string());
         }
         choices
     }

@@ -110,6 +110,19 @@ pub fn is_platform_adapter(id: &str) -> bool {
         .any(|adapter| adapter.platform && adapter.id == id)
 }
 
+/// The model the `/mjconfig` editor prefills when a platform adapter owns
+/// the implicit team but nothing has advertised a launchable model yet.
+/// Prefilling a concrete model — instead of leaving the seat on `auto` — lets
+/// a first-run user save a selection and break out of the no-model deadlock.
+pub const PLATFORM_DEFAULT_MODEL: &str = "gpt-5-6-luna";
+
+/// Whether a `/mjconfig` catalog should offer the platform default model as a
+/// fallback choice. True only when a platform adapter (Draupnir or Anvil)
+/// owns the implicit team and no advertised model is currently launchable.
+pub fn platform_default_model_fallback(has_platform: bool, has_launchable: bool) -> bool {
+    has_platform && !has_launchable
+}
+
 fn external_launch(external: &ExternalAdapter) -> AdapterLaunch {
     AdapterLaunch {
         kind: AdapterKind::External,
@@ -1483,6 +1496,16 @@ mod tests {
             ranked: false,
             reasoning_effort: None,
         }
+    }
+
+    #[test]
+    fn platform_default_fallback_offers_the_default_only_without_launchable_models() {
+        // The fallback needs a platform adapter and no launchable model.
+        assert_eq!(PLATFORM_DEFAULT_MODEL, "gpt-5-6-luna");
+        assert!(platform_default_model_fallback(true, false));
+        // A launchable model or an absent platform adapter disables it.
+        assert!(!platform_default_model_fallback(true, true));
+        assert!(!platform_default_model_fallback(false, false));
     }
 
     #[test]

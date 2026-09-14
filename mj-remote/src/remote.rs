@@ -6458,6 +6458,16 @@ async fn mjconfig_apply(
             discovery.active_models.clone(),
         )
     };
+    // With a platform adapter owning the implicit team but nothing launchable
+    // yet, default the primary model so this save records a concrete model and
+    // the panel can leave the no-model deadlock instead of staying on `auto`.
+    if mj_core::roster::platform_default_model_fallback(
+        mj_core::roster::platform_adapter(&config).is_some(),
+        choices.iter().any(|choice| choice.available),
+    ) && config.agent.model == "auto"
+    {
+        config.agent.model = mj_core::roster::PLATFORM_DEFAULT_MODEL.to_string();
+    }
     // Same guard as the TUI's save: a policy edit that strands a pinned seat
     // model flips that seat to auto, with a notice instead of a later failure.
     let reroute_notices = mjconfig_apply_edits(

@@ -103,7 +103,7 @@ pub struct ModelOption {
 }
 
 /// ACP capabilities needed by the model-first adapter catalog.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AdapterCapabilities {
     pub models: Vec<ModelOption>,
     pub session_config: Vec<SessionConfigOption>,

@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use anyhow::{Result, anyhow, bail};
 use futures::{StreamExt, stream};
@@ -17,6 +17,11 @@ use crate::probe;
 use crate::subscription::{self, Subscriptions};
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
+/// How long a successful adapter capability probe is reused on startup.
+const PROBE_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+/// Failed probes are retried more often so a fixed or authenticated adapter
+/// comes back without the user clearing a cache.
+const PROBE_CACHE_ERROR_TTL: Duration = Duration::from_secs(60 * 10);
 
 pub use crate::roster_types::{
     AcpInventory, AcpServerInfo, AdapterKind, AdapterLaunch, Availability, ClaudeAuthStatus,
@@ -303,6 +308,119 @@ fn source_priority(source_id: &str, priority: &[String]) -> usize {
         .unwrap_or(priority.len())
 }
 
+/// Persistent cache of one-shot adapter probes so interactive startup does
+/// not pay every adapter's `npx`/`uvx` launch on every run. Probes depend on
+/// the adapter route and workspace, so a change in either produces a new
+/// cache entry.
+mod adapter_probe_cache {
+    use super::{AdapterLaunch, Path, SystemTime};
+    use crate::probe;
+    use serde::{Deserialize, Serialize};
+    use sha2::Digest;
+    use std::path::PathBuf;
+
+    type CachedResult = std::result::Result<probe::AdapterCapabilities, String>;
+
+    #[derive(Serialize, Deserialize)]
+    struct Entry {
+        at_ms: u128,
+        result: CachedResult,
+    }
+
+    pub(super) fn cache_path(launch: &AdapterLaunch, cwd: &Path) -> PathBuf {
+        let mut env = launch.env.clone().into_iter().collect::<Vec<_>>();
+        env.sort();
+        let fingerprint = format!(
+            "v1|{}|{}|{}|{}",
+            launch.source_id,
+            launch.command.display(),
+            launch.args.join("\u{1f}"),
+            env.into_iter()
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>()
+                .join("\u{1f}"),
+        );
+        let cwd_digest = sha2::Sha256::digest(cwd.as_os_str().as_encoded_bytes());
+        let probe_digest = sha2::Sha256::digest(fingerprint.as_bytes());
+        dirs::cache_dir()
+            .unwrap_or_else(std::env::temp_dir)
+            .join("belgr")
+            .join("adapter-probes")
+            .join(format!(
+                "{}-{}.json",
+                hex(&cwd_digest[..8]),
+                hex(&probe_digest[..8]),
+            ))
+    }
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    fn entry(at_ms: u128, result: CachedResult) -> Entry {
+        Entry { at_ms, result }
+    }
+
+    pub(super) fn read(
+        launch: &AdapterLaunch,
+        cwd: &Path,
+        now: SystemTime,
+    ) -> Option<CachedResult> {
+        let body = std::fs::read_to_string(cache_path(launch, cwd)).ok()?;
+        let entry: Entry = serde_json::from_str(&body).ok()?;
+        let age = now
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()?
+            .as_millis()
+            .checked_sub(entry.at_ms)?;
+        let ttl = if entry.result.is_ok() {
+            super::PROBE_CACHE_TTL
+        } else {
+            super::PROBE_CACHE_ERROR_TTL
+        };
+        (age <= ttl.as_millis()).then_some(entry.result)
+    }
+
+    pub(super) fn write(
+        launch: &AdapterLaunch,
+        cwd: &Path,
+        capabilities: &probe::AdapterCapabilities,
+    ) {
+        let entry = entry(
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map(|duration| duration.as_millis())
+                .unwrap_or_default(),
+            Ok(capabilities.clone()),
+        );
+        store(&cache_path(launch, cwd), &entry);
+    }
+
+    pub(super) fn write_error(launch: &AdapterLaunch, cwd: &Path, error: &str) {
+        let entry = entry(
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map(|duration| duration.as_millis())
+                .unwrap_or_default(),
+            Err(error.to_string()),
+        );
+        store(&cache_path(launch, cwd), &entry);
+    }
+
+    fn store(path: &Path, entry: &Entry) {
+        let Some(parent) = path.parent() else {
+            return;
+        };
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            tracing::warn!("create adapter probe cache dir: {error}");
+            return;
+        }
+        if let Err(error) = std::fs::write(path, serde_json::to_vec(entry).unwrap_or_default()) {
+            tracing::warn!("write adapter probe cache: {error}");
+        }
+    }
+}
+
 fn detect_availability() -> Availability {
     Availability {
         codex_credentials: codex_credentials_available(),
@@ -582,6 +700,9 @@ async fn probe_launch(
     launch: &AdapterLaunch,
     cwd: &Path,
 ) -> std::result::Result<probe::AdapterCapabilities, String> {
+    if let Some(cached) = adapter_probe_cache::read(launch, cwd, SystemTime::now()) {
+        return cached;
+    }
     probe::adapter_capabilities(
         launch.command.clone(),
         launch.args.clone(),
@@ -590,6 +711,8 @@ async fn probe_launch(
         PROBE_TIMEOUT,
     )
     .await
+    .inspect(|capabilities| adapter_probe_cache::write(launch, cwd, capabilities))
+    .inspect_err(|error| adapter_probe_cache::write_error(launch, cwd, error))
 }
 
 fn row_keys(row: &Row) -> HashSet<String> {
@@ -2341,6 +2464,30 @@ mod tests {
                 "codex-acp".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn probe_cache_reuses_a_recent_successful_probe() {
+        let launch = launch_for(AdapterKind::Codex);
+        let cwd = Path::new(".");
+        let cache_path = adapter_probe_cache::cache_path(&launch, cwd);
+        let _ = std::fs::remove_file(&cache_path);
+        let capabilities = probe::AdapterCapabilities {
+            models: vec![probe::ModelOption {
+                value: "gpt-5-6-luna".to_string(),
+                name: "GPT-5.6 Luna".to_string(),
+                description: None,
+            }],
+            session_config: Vec::new(),
+        };
+        adapter_probe_cache::write(&launch, cwd, &capabilities);
+        assert!(cache_path.exists(), "probe cache entry written");
+
+        let cached = adapter_probe_cache::read(&launch, cwd, SystemTime::now())
+            .expect("recent probe cache entry");
+        let cached = cached.expect("cached capabilities");
+        assert_eq!(cached.models.len(), capabilities.models.len());
+        assert_eq!(cached.models[0].value, capabilities.models[0].value);
     }
 
     #[test]
